@@ -65,6 +65,8 @@ The width of the graphic view is in bytes, or sets of 8 to represent the memory 
 
 By default the Graphic View scales the image to the available space, double click on the image to set fixed scales (fit -> 1x -> 2x -> 4x -> fit)
 
+If the image is larger than the pane it can be moved by dragging with the left mouse button.
+
 ###Boot RAM autoload
 
 In order to debug code reliant on an operating system or similar Step6502 will attempt to load a file named "bootram.bin" from the same
@@ -80,3 +82,9 @@ and then type a filename with the extension .d64 into the File Name field. First
 Now open the monitor by pressing Alt+m and type: s "bootram.bin" 8 0 ffff
 
 Exit vice, open a command line prompt and go to the folder with the .d64 and run vice\c1541.exe <name>.d64 and type "extract" followed by "quit".
+
+##Building the project
+
+The project was built using Microsoft Visual Studio 2015 Community Edition with C++ and MFC installed, which can be downloaded from:
+
+https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
