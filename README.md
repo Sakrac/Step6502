@@ -6,7 +6,9 @@ Step6502 is a stand-alone 6502 windowed debugger similar to visual studio. The d
 
 ##Background
 
-This debugger is simply a fun project, I like to tinker with 6502 assembler but have got too comfortable with modern GUI debuggers such as Microsoft Visual Studio and SN Systems debuggers. I have also built a 6502 series command line assembler (https://github.com/sakrac/x65).
+This debugger is simply a fun project, Tinkering with 6502 assembler I've got too comfortable with modern GUI debuggers such as Microsoft Visual Studio and SN Systems debuggers.
+
+If you're looking for a 6502 series command line assembler try this one: https://github.com/sakrac/x65.
 
 ##Download
 
