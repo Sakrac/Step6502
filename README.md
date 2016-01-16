@@ -1,8 +1,10 @@
 #Step6502 Documentation
 
-![screen](media/screen.png)
+![screenshot](media/screen.png)
 
 Step6502 is a stand-alone 6502 windowed debugger similar to visual studio. The debugger is not associated with any particular computer and does not emulate peripheral components such as a display or a keyboard. The emulation code is based on the design of http://www.gianlucaghettini.net/mos-6502-cpu-emulator-in-c/
+
+Since the 6502 CPU context is just 8 bytes it is simple to store a complete machine delta for each instruction, which allows for an effective per instruction undo buffer. The undo buffer is used to step and run backwards in time, which fits nearly 2 million instructions or about two full seconds of 1 MHz running.
 
 ##Background
 
@@ -27,7 +29,29 @@ To load a binary file to memory use the LOAD toolbar button, which opens up a fi
 
 If there is a vice monitor command file with the same name as the binary with the extension ".vs" symbols and breakpoints will be loaded with the binary file, if the ".vs" can not be found a file with the extension ".sym" will be loaded.
 
+###Toolbar
+
+![toolbar image](media/toolbar.png)
+
+The buttons on the toolbar can control most of the functions of the Code View.
+
+* Copy: Not implemented yet
+* Help: Brings up the About dialog
+* Pause: This button is enabled when the CPU is running
+* Run: Run the emulator
+* Run backwards: Undo instructions until paused, a breakpoint is hit or the undo buffer is empty.
+* Step: Step one instruction
+* Step backwards: Undo a single instruction
+* Breakpoint: If a line of code is marked in the code view, set a breakpoint on that line
+* Interrupt: Issue an IRQ
+* NMI: Issue a non maskable interrupt
+* Reset: Signal a reset, sets the PC to the reset vector address
+* Reload: Load the previously loaded binary with the previous options, even if the debugger has been reopened since
+* Load: Load a binary into RAM
+
 ###Code View
+
+Keyboard:
 
 * **F11**: Step forward
 * **SHIFT + F11**: Step backward
@@ -39,7 +63,7 @@ If there is a vice monitor command file with the same name as the binary with th
 
 Left mouse button click selects a line in the current code view.
 
-Double click a line in the current code view to write machine code at that address.
+Double click a line in the current code view to edit the instruction at that address.
 
 The CodeView pane accepts drag & drop of binary files.
 
@@ -67,6 +91,20 @@ By default the Graphic View scales the image to the available space, double clic
 
 If the image is larger than the pane it can be moved by dragging with the left mouse button.
 
+###Loading a binary file
+
+When loading a binary executable or drag & dropping one into the code view a "Load Address" dialog box will ask how to load it.
+
+![load address dialog box](media/loadaddress.png)
+
+* C64 PRG is a binary file preceeded by two bytes of loading address, the debugger will read out the address and put the file there.
+* Apple II Dos 3.3 files are preceeded by a load address and a load size.
+* Binary are pure binary files and the Address from the next line in Load Options will be used.
+* Force Address overrides the file address of C64 PRG and Apple II Dos 3.3.
+* The address file is used for loading pure binary files.
+* Set PC to load address forces the program counter to the address the file was loaded at.
+* Reset backtrace buffer removes all undo buffer instructions so that running backwards won't run past the start of the new executable.
+
 ###Boot RAM autoload
 
 In order to debug code reliant on an operating system or similar Step6502 will attempt to load a file named "bootram.bin" from the same
@@ -83,7 +121,7 @@ Now open the monitor by pressing Alt+m and type: s "bootram.bin" 8 0 ffff
 
 Exit vice, open a command line prompt and go to the folder with the .d64 and run vice\c1541.exe <name>.d64 and type "extract" followed by "quit".
 
-##Building the project
+##Building the debugger project
 
 The project was built using Microsoft Visual Studio 2015 Community Edition with C++ and MFC installed, which can be downloaded from:
 

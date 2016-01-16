@@ -12,3 +12,5 @@
 *.res
 *.log
 *.ipdb
+*.ilk
+*.idb
