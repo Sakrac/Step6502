@@ -95,7 +95,7 @@ If the image is larger than the pane it can be moved by dragging with the left m
 
 When loading a binary executable or drag & dropping one into the code view a "Load Address" dialog box will ask how to load it.
 
-![load address dialog box](media/loadaddress.png)
+![load address dialog box](media/loadoptions.png)
 
 * C64 PRG is a binary file preceeded by two bytes of loading address, the debugger will read out the address and put the file there.
 * Apple II Dos 3.3 files are preceeded by a load address and a load size.
