@@ -35,7 +35,7 @@ If there is a vice monitor command file with the same name as the binary with th
 
 The buttons on the toolbar can control most of the functions of the Code View.
 
-* Copy: Not implemented yet
+* Copy: Copy from the current pane (code, graphics, memory, registers)
 * Help: Brings up the About dialog
 * Pause: This button is enabled when the CPU is running
 * Run: Run the emulator
@@ -67,6 +67,8 @@ Double click a line in the current code view to edit the instruction at that add
 
 The CodeView pane accepts drag & drop of binary files.
 
+Click and drag to select disassembly to copy to clipboard.
+
 The toolbar can be used to control code as well.
 
 ###Memory View
@@ -77,9 +79,19 @@ Use arrow up/down and page up/down to move the address.
 
 Click on a byte in the display to edit memory, move the cursor while editing with the arrow keys.
 
+Click and drag to select hex bytes to copy to clipboard.
+
 ###Register View
 
 Click on the fields to change them..
+
+Copying after clicking in the register view will copy the registers to the clipboard.
+
+###Breakpoint View
+
+List of all breakpoints, select a breakpoint and press delete to delete breakpoint or doubleclick a breakpoint to show it in the code view.
+
+There is a column for breakpoint condition, this feature is not ready yet but it was easier to add the condition column while I was adding the pane than to psuh it off to some time later.
 
 ###Graphic View
 
@@ -90,6 +102,8 @@ The width of the graphic view is in bytes, or sets of 8 to represent the memory 
 By default the Graphic View scales the image to the available space, double click on the image to set fixed scales (fit -> 1x -> 2x -> 4x -> fit)
 
 If the image is larger than the pane it can be moved by dragging with the left mouse button.
+
+Copying after clicking in the graphic view will copy the bitmap to the clipboard.
 
 ###Loading a binary file
 
@@ -126,3 +140,7 @@ Exit vice, open a command line prompt and go to the folder with the .d64 and run
 The project was built using Microsoft Visual Studio 2015 Community Edition with C++ and MFC installed, which can be downloaded from:
 
 https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
+
+##Fixes
+
+* Added Breakpoint View, Added copy to clipboard, Accept "Cancel" to be selected in dialogs.

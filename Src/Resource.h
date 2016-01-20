@@ -19,6 +19,7 @@
 #define IDS_STRING130                   130
 #define IDS_MEMORY2_NAME                130
 #define IDS_GRAPHIC_VIEW                131
+#define IDS_BREAKPOINTS                 132
 #define ID_VIEW_OUTPUTWND               149
 #define IDS_OUTPUT_WND                  157
 #define IDI_OUTPUT_WND                  165
@@ -57,6 +58,9 @@
 #define ID_GRAPHIC_HEIGHT_FIELD         222
 #define ID_GRAPHIC_FONT_FIELD           223
 #define ID_MEMORY_COLUMNS_FIELD         228
+#define ID_BREAKPOINTS                  229
+#define ID_BREAKPOINT_LIST              230
+#define ID_BREAKPOINT_EDIT              231
 #define IDS_BUILD_TAB                   300
 #define IDS_DEBUG_TAB                   301
 #define IDS_FIND_TAB                    302
@@ -67,6 +71,8 @@
 #define IDD_LOAD_ADDRESS                324
 #define IDI_ICON1                       326
 #define IDI_DROP_ICON                   326
+#define IDI_ICON2                       327
+#define IDI_BREAKPOINT_ICON             327
 #define IDC_EDIT1                       1000
 #define IDC_LOAD_ADDRESS_EDIT_MANUAL    1000
 #define IDC_LIST1                       1002
@@ -105,7 +111,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        327
+#define _APS_NEXT_RESOURCE_VALUE        328
 #define _APS_NEXT_COMMAND_VALUE         32804
 #define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           311

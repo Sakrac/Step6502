@@ -36,7 +36,6 @@ END_MESSAGE_MAP()
 
 void CMemoryColumns::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar==VK_RETURN && m_memory) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
@@ -49,8 +48,6 @@ void CMemoryColumns::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 UINT CMemoryColumns::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CEdit::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS;
 }
 
@@ -85,7 +82,6 @@ END_MESSAGE_MAP()
 
 void CMemoryAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar==VK_RETURN && m_memory) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
@@ -99,8 +95,6 @@ void CMemoryAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 UINT CMemoryAddress::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CEdit::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS;
 }
 
@@ -117,6 +111,7 @@ CMemory::CMemory()
 	bytesWide = 0;
 	selectAddr = false;
 	cursor_x = cursor_y = 0xff;
+	m_selecting = false;
 }
 
 CMemory::~CMemory()
@@ -139,6 +134,8 @@ BEGIN_MESSAGE_MAP(CMemory, CDockablePane)
 	ON_WM_GETDLGCODE()
 	ON_WM_KILLFOCUS()
 	ON_WM_LBUTTONDBLCLK()
+	ON_WM_LBUTTONDOWN()
+	ON_WM_MOUSEMOVE()
 END_MESSAGE_MAP()
 
 
@@ -152,7 +149,6 @@ int CMemory::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CDockablePane::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
-	// TODO:  Add your specialized creation code here
 	CRect rect;
 	GetClientRect(&rect);
 
@@ -193,7 +189,6 @@ int CMemory::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CMemory::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: Add your message handler code here
 					   // Do not call CDockablePane::OnPaint() for painting messages
 
 	CDC *pDC = &dc;
@@ -229,6 +224,8 @@ void CMemory::OnPaint()
 		int columns = bytesWide == 0 ? (width-charWidth*5) / (charWidth * 3) : bytesWide;
 		fitBytesWidth = columns;
 		fitLinesHeight = lines;
+		m_charWidth = charWidth;
+		m_lineHeight = lineHeight;
 		uint8_t v = uint8_t(rand());
 		wchar_t byte_str[16];
 
@@ -244,15 +241,6 @@ void CMemory::OnPaint()
 		}
 		selectAddr = false;
 
-		if (cursor_x != 0xff) {
-			COLORREF prevCol = pDC->GetBkColor();
-			int left = charWidth * (5 + cursor_x);
-			int top = MEMORY_BAR_HEIGHT + lineHeight * cursor_y;
-			CRect cursor_rect(left, top, left + charWidth, top + lineHeight - 2);
-			pDC->FillSolidRect(cursor_rect, RGB(255, 128, 128));
-			pDC->SetBkColor(prevCol);
-			pDC->SetBkMode(TRANSPARENT);
-		}
 
 		if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 			if (m_currDelta.m_actionId != pFrame->m_actionID) {
@@ -279,11 +267,31 @@ void CMemory::OnPaint()
 		}
 
 		bool wasChanged = false;
+		pDC->SetBkMode(TRANSPARENT);
 		for (int l = 0; l<lines; l++) {
 			CRect textRect = rect;
 			textRect.top += l * lineHeight + MEMORY_BAR_HEIGHT;
 			swprintf(byte_str, sizeof(byte_str), L"%04x", addr);
 			pDC->DrawText(byte_str, &textRect, DT_TOP | DT_LEFT | DT_SINGLELINE);
+			uint16_t addrEnd = addr + columns;
+
+			if (m_selecting && m_selAddr<addrEnd && m_selEnd>=addr) {
+				CRect selRect;
+				selRect.left = ((m_selAddr<addr ? 0 : (m_selAddr-addr)) * 3 + 5) * charWidth;
+				selRect.top = l * lineHeight + MEMORY_BAR_HEIGHT;
+				selRect.right = ((m_selEnd>=addrEnd ? columns : (m_selEnd+1-addr)) * 3 + 4) * charWidth;
+				selRect.bottom = selRect.top + lineHeight;
+				pDC->FillSolidRect(&selRect, RGB(224, 224, 255));
+			}
+			if (cursor_x != 0xff && cursor_y == l) {
+				COLORREF prevCol = pDC->GetBkColor();
+				int left = charWidth * (5 + cursor_x);
+				int top = MEMORY_BAR_HEIGHT + lineHeight * cursor_y;
+				CRect cursor_rect(left, top, left + charWidth, top + lineHeight - 2);
+				pDC->FillSolidRect(cursor_rect, RGB(255, 128, 128));
+				pDC->SetBkColor(prevCol);
+			}
+
 
 			for (int c = 0; c<columns; c++) {
 				textRect = rect;
@@ -325,7 +333,6 @@ void CMemory::OnSize(UINT nType, int cx, int cy)
 {
 	CDockablePane::OnSize(nType, cx, cy);
 
-	// TODO: Add your message handler code here
 	CRect rect;
 	GetClientRect(&rect);
 	rect.left += 128;
@@ -340,9 +347,8 @@ void CMemory::OnSize(UINT nType, int cx, int cy)
 
 void CMemory::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	UINT upchar = toupper(nChar);
+	uint16_t prev_addr = currAddr + cursor_y * fitBytesWidth + cursor_x/3;
 
 	if (nChar == VK_UP) {
 		if (cursor_x != 0xff && cursor_y) {
@@ -396,6 +402,7 @@ void CMemory::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		Invalidate();
 	} else if (nChar == VK_ESCAPE) {
 		cursor_x = cursor_y = 0xff;
+		m_selecting = false;
 		Invalidate();
 	} else if (cursor_x != 0xff && ((nChar >= '0' && nChar <= '9') || (upchar >= 'A' && upchar <='F'))) {
 		if ((cursor_x%3)!=2) {
@@ -416,14 +423,93 @@ void CMemory::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		}
 	}
 
+	if (nChar == VK_LEFT || nChar == VK_UP || nChar == VK_RIGHT || nChar == VK_DOWN) {
+		if (GetKeyState(VK_SHIFT) & 0x8000) {
+			uint16_t new_addr = currAddr + cursor_y * fitBytesWidth + cursor_x/3;
+			if (!m_selecting) {
+				m_selAddr = prev_addr;
+				m_selEnd = new_addr;
+				m_selFirst = prev_addr;
+			} else {
+				if (new_addr <= m_selFirst) {
+					m_selAddr = new_addr;
+					m_selEnd = m_selFirst;
+					Invalidate();
+				} else if (new_addr > m_selFirst) {
+					m_selAddr = m_selFirst;
+					m_selEnd = new_addr;
+					Invalidate();
+				}
+			}
+			m_selecting = true;
+		} else {
+			m_selecting = false;
+			Invalidate();
+		}
+	}
+
 	CDockablePane::OnKeyDown(nChar, nRepCnt, nFlags);
 }
 
+void CMemory::OnMouseMove(UINT nFlags, CPoint point)
+{
+	if (m_mouse_left_down) {
+		if (!m_selecting) {
+			int x = (selectPoint.x-m_editLeft) / m_charWidth;
+			int y = (selectPoint.y-MEMORY_BAR_HEIGHT) / m_lineHeight;
+			if (y>=0 && x>=0) {
+				uint16_t addr = currAddr + x/3 + y * fitBytesWidth;
+				m_selFirst = addr;
+				m_selAddr = addr;
+				m_selEnd = addr;
+				m_selecting = true;
+				Invalidate();
+			}
+		} else {
+			int x = (point.x-m_editLeft) / m_charWidth;
+			int y = (point.y-MEMORY_BAR_HEIGHT) / m_lineHeight;
+			uint16_t addr = currAddr + x/3 + y * fitBytesWidth;
+			if (addr >= m_selFirst) {
+				if (m_selAddr != m_selFirst || m_selEnd != addr) {
+					m_selAddr = m_selFirst;
+					m_selEnd = addr;
+					Invalidate();
+				}
+			} else if (m_selAddr != addr || m_selEnd != m_selFirst) {
+				m_selAddr = addr;
+				m_selEnd = m_selFirst;
+				Invalidate();
+			}
+			wchar_t buf[32];
+			wsprintf(buf, L"%x", addr);
+
+		}
+	}
+}
+
+
+void CMemory::OnLButtonDblClk(UINT nFlags, CPoint point)
+{
+}
+
+
+void CMemory::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->m_currView = m_viewIndex ? S6_MEM2 : S6_MEM1;
+
+	m_mouse_left_down = true;
+	selectPoint = point;
+	if (m_selecting) {
+		m_selecting = false;
+		Invalidate();
+	}
+
+	CDockablePane::OnLButtonDown(nFlags, point);
+}
 
 BOOL CMemory::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	if (zDelta > 0) {
 		currAddr -= fitBytesWidth;
 		Invalidate();
@@ -438,7 +524,7 @@ BOOL CMemory::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 void CMemory::OnLButtonUp(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
+	m_mouse_left_down = false;
 	if (IsCPURunning()) {
 		Invalidate();
 	} else if (point.y > MEMORY_BAR_HEIGHT && point.x>m_editLeft && point.x<m_editRight) {
@@ -454,8 +540,6 @@ void CMemory::OnLButtonUp(UINT nFlags, CPoint point)
 
 UINT CMemory::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CDockablePane::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS;
 }
 
@@ -463,15 +547,47 @@ UINT CMemory::OnGetDlgCode()
 void CMemory::OnKillFocus(CWnd* pNewWnd)
 {
 	CDockablePane::OnKillFocus(pNewWnd);
+	bool invalidate = false;
 	if (cursor_x != 0xff) {
 		cursor_x = cursor_y = 0xff;
-		Invalidate();
+		invalidate = true;
 	}
-	// TODO: Add your message handler code here
+	if (m_selecting) {
+		m_selecting = false;
+		invalidate = true;
+	}
+	if (invalidate)
+		Invalidate();
 }
 
-
-void CMemory::OnLButtonDblClk(UINT nFlags, CPoint point)
+void CMemory::OnEditCopy()
 {
-	// TODO: Add your message handler code here and/or call default
+	if (m_selecting) {
+		uint16_t n = (m_selAddr - currAddr) % fitBytesWidth;
+		uint16_t b = m_selEnd - m_selAddr + 1;
+		int chars = 3 * b + 2 * (b / fitBytesWidth + 2);
+		if (char *tmp = (char*)malloc(chars)) {
+			int len = 0;
+			for (int i = 0; i<b; i++) {
+				if (++n>=fitBytesWidth)
+					n = 0;
+				len += sprintf_s(tmp+len, chars-len, "%02x%s",
+								 Get6502Byte(currAddr+i), n ? " " : "\r\n");
+			}
+			len += sprintf_s(tmp+len, chars-len, "%s", "\r\n");
+			if (OpenClipboard()) {
+				if (EmptyClipboard()) {
+					HGLOBAL clipbuffer = GlobalAlloc(GMEM_DDESHARE, len+1);
+					char* buffer = (char*)GlobalLock(clipbuffer);
+					strcpy_s(buffer, len+1, tmp);
+					GlobalUnlock(clipbuffer);
+					SetClipboardData(CF_TEXT, clipbuffer);
+				}
+				CloseClipboard();
+			}
+			free(tmp);
+		}
+	}
 }
+
+

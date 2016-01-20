@@ -122,6 +122,7 @@ public:
 	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnMouseLeave();
+	afx_msg void OnEditCopy();
 };
 
 

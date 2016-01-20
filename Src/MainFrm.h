@@ -9,6 +9,7 @@
 #include "CodeView.h"
 #include "LoadAddress.h"
 #include "GraphicView.h"
+#include "BreakpointList.h"
 
 // CMainToolBar
 
@@ -26,6 +27,14 @@ protected:
 
 	DECLARE_MESSAGE_MAP()
 public:
+};
+
+enum S6Views {
+	S6_REG,
+	S6_CODE,
+	S6_MEM1,
+	S6_MEM2,
+	S6_GFX
 };
 
 class CMainFrame : public CFrameWndEx
@@ -61,11 +70,14 @@ public:
 	void InvalidateAll();
 
 	void FocusPC() { m_code.FocusPC(); }
+	void FocusAddr(uint16_t addr) { m_code.FocusAddr(addr); }
 	void TryLoadBinary(const wchar_t *name);
+	void BreakpointChanged() { m_breakpoints.Rebuild(); }
 
 	CFont &Font() { return m_font; }
 
 	int				  m_actionID;	// action ID increments when stepping or running
+	S6Views           m_currView;
 
 protected:  // control bar embedded members
 	CMFCMenuBar       m_wndMenuBar;
@@ -79,6 +91,7 @@ protected:  // control bar embedded members
 	CChildView        m_wndView;
 	CLoadAddress      m_loadAddressDialog;
 	CGraphicView      m_graphicView;
+	CBreakpointList   m_breakpoints;
 
 	int               m_currFontSize;
 	CFont             m_font;
@@ -120,6 +133,7 @@ public:
 	afx_msg void OnFontsize20();
 	afx_msg void OnFontsize22();
 	afx_msg void OnFontsize24();
+	afx_msg void OnEditCopy();
 };
 
 

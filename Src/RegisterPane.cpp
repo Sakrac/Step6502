@@ -51,8 +51,6 @@ int CRegisterPane::OnCreate(LPCREATESTRUCT lpCreateStruct)
 void CRegisterPane::OnSize(UINT nType, int cx, int cy)
 {
 	CDockablePane::OnSize(nType, cx, cy);
-
-	// TODO: Add your message handler code here
 }
 
 #define DBLBUF
@@ -60,7 +58,6 @@ void CRegisterPane::OnSize(UINT nType, int cx, int cy)
 void CRegisterPane::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: Add your message handler code here
 					   // Do not call CDockablePane::OnPaint() for painting messages
 
 	CRect rect;
@@ -140,15 +137,12 @@ void CRegisterPane::OnPaint()
 
 void CRegisterPane::OnLButtonDblClk(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	CDockablePane::OnLButtonDblClk(nFlags, point);
 }
 
 
 void CRegisterPane::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	UINT uc = toupper(nChar);
 	if (nChar == VK_LEFT) {
 		if (m_cursor_x != 0xff && m_cursor_x !=0x00) {
@@ -207,7 +201,6 @@ void CRegisterPane::OnKillFocus(CWnd* pNewWnd)
 {
 	CDockablePane::OnKillFocus(pNewWnd);
 
-	// TODO: Add your message handler code here
 	if (m_cursor_x != 0xff) {
 		m_cursor_x = 0xff;
 		Invalidate();
@@ -219,7 +212,10 @@ void CRegisterPane::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	// ADDR AC XR YR SP NV-BDIZC
 	// 01234567890123456789901234
-	// TODO: Add your message handler code here and/or call default
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->m_currView = S6_REG;
+
 	if (point.y >= (m_lineHeight) && point.y <= (2*m_lineHeight)) {
 		if (point.x < (24 * m_charWidth)) {
 			m_cursor_x = uint8_t(point.x / m_charWidth);
@@ -229,10 +225,30 @@ void CRegisterPane::OnLButtonDown(UINT nFlags, CPoint point)
 	CDockablePane::OnLButtonDown(nFlags, point);
 }
 
+void CRegisterPane::OnEditCopy()
+{
+	if (OpenClipboard()) {
+		if (EmptyClipboard()) {
+			char str[256];
+			Regs &r = GetRegs();
+			sprintf_s(str, "ADDR AC XR YR SP NV-BDIZC CYCLES\r\n%04X %02X %02X %02X %02X %d%d%d%d%d%d%d%d %d\n",
+					  r.PC, r.A, r.X, r.Y, r.S, (r.P>>7)&1, (r.P>>6)&1, (r.P>>5)&1, (r.P>>4)&1,
+					  (r.P>>3)&1, (r.P>>2)&1, (r.P>>1)&1, r.P&1, GetCycles());
+			size_t l = strlen(str)+1;
+			HGLOBAL clipbuffer = GlobalAlloc(GMEM_DDESHARE, l);
+			char* buffer = (char*)GlobalLock(clipbuffer);
+			strcpy_s(buffer, l, str);
+			GlobalUnlock(clipbuffer);
+			SetClipboardData(CF_TEXT, clipbuffer);
+		}
+		CloseClipboard();
+	}
+}
+
+
+
 
 UINT CRegisterPane::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CDockablePane::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB;
 }

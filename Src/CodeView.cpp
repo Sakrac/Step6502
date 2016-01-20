@@ -48,7 +48,6 @@ END_MESSAGE_MAP()
 
 void CAsmEdit::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar==VK_RETURN && m_Code) {
 		wchar_t wide_instruction[64];
 		GetWindowText(wide_instruction, sizeof(wide_instruction)/sizeof(wide_instruction[0]));
@@ -66,16 +65,19 @@ void CAsmEdit::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 UINT CAsmEdit::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CEdit::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS;
+}
+
+void CAsmEdit::OnKillFocus(CWnd* pNewWnd)
+{
+	CEdit::OnKillFocus(pNewWnd);
+	ShowWindow(SW_HIDE);
 }
 
 
 
 void CCodeAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar==VK_RETURN && m_Code) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
@@ -89,8 +91,6 @@ void CCodeAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 UINT CCodeAddress::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CEdit::OnGetDlgCode() | DLGC_WANTALLKEYS;
 }
 
@@ -100,9 +100,9 @@ UINT CCodeAddress::OnGetDlgCode()
 
 IMPLEMENT_DYNAMIC(CCodeView, CDockablePane)
 
-CCodeView::CCodeView() : currAddr(0xe000), m_cursor(0xffff), m_nextAssembleAddr(-1)
+CCodeView::CCodeView() : currAddr(0xe000), m_cursor(0xffff),
+m_nextAssembleAddr(-1), m_selecting(false), m_leftmouse(false)
 {
-
 }
 
 CCodeView::~CCodeView()
@@ -129,6 +129,8 @@ BEGIN_MESSAGE_MAP(CCodeView, CDockablePane)
 	ON_COMMAND(ID_BUTTON_BREAK, &CCodeView::OnButtonBreak)
 	ON_WM_LBUTTONDBLCLK()
 	ON_WM_DROPFILES()
+	ON_WM_MOUSEMOVE()
+	ON_WM_LBUTTONUP()
 END_MESSAGE_MAP()
 
 
@@ -146,7 +148,6 @@ END_MESSAGE_MAP()
 void CCodeView::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: Add your message handler code here
 					   // Do not call CDockablePane::OnPaint() for painting messages
 	CDC *pDC = &dc;
 
@@ -190,21 +191,10 @@ void CCodeView::OnPaint()
 
 		bool isRunning = IsCPURunning();
 
-		if (m_cursor != 0xffff && !isRunning) {
-			COLORREF prevCol = pDC->GetBkColor();
-			int left = CODE_LEFT_MARGIN;
-			int top = m_cursor * lineHeight + CODE_BAR_HEIGHT;
-			CRect cursor_rect(left, top, rect.right - charWidth, top + lineHeight - 2);
-			CBrush brush;
-			brush.CreateSolidBrush(RGB(192, 192, 192));
-			pDC->FrameRect(&cursor_rect, &brush);
-			pDC->SetBkColor(prevCol);
-			pDC->SetBkMode(TRANSPARENT);
-		}
-
 		uint16_t *pBP, nBP = GetPCBreakpoints(&pBP);
 		bool was_label = false;
 
+		pDC->SetBkMode(TRANSPARENT);
 		for (int l = 0; l<lines; l++) {
 			int strlen = sprintf_s(disasm, sizeof(disasm), "%04x ", addr);
 			int cmdlen = 0;
@@ -217,6 +207,26 @@ void CCodeView::OnPaint()
 			textRect.left += CODE_LEFT_MARGIN;
 
 			const wchar_t *label = !was_label ? GetSymbol(addr) : nullptr;
+
+			if (m_cursor != 0xffff && !isRunning) {
+				COLORREF prevCol = pDC->GetBkColor();
+				int left = CODE_LEFT_MARGIN;
+				int top = m_cursor * lineHeight + CODE_BAR_HEIGHT;
+				CRect cursor_rect(left, top, rect.right - charWidth, top + lineHeight - 2);
+				CBrush brush;
+				brush.CreateSolidBrush(RGB(192, 192, 192));
+				pDC->FrameRect(&cursor_rect, &brush);
+				pDC->SetBkColor(prevCol);
+			}
+
+			if (m_selecting) {
+				if ((l>=m_selCursor && addr<=m_selFirst) || (addr>=m_selFirst && l<=m_selCursor)) {
+					CRect selRect = textRect;
+					selRect.bottom = selRect.top + lineHeight;
+					pDC->FillSolidRect(&selRect, RGB(224, 224, 255));
+				}
+			}
+
 
 			if (label) {
 				wsprintf(wide_str, L"%s:", label);
@@ -334,14 +344,14 @@ int CCodeView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	DragAcceptFiles();
 
+	FocusPC();
+
 	return 0;
 }
 
 
 BOOL CCodeView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	if (zDelta<0) {
 		currAddr += InstructionBytes(currAddr);
 		GetParent()->Invalidate();
@@ -361,7 +371,9 @@ BOOL CCodeView::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
 
 void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
+	bool wasCursor = m_cursor != 0xffff && m_aLinePC[m_cursor]>=0;
+	uint16_t prevAddr = wasCursor ? m_aLinePC[m_cursor] : 0;
+
 	if (nChar == VK_TAB) {
 		if ((GetKeyState(VK_SHIFT) & 0x8000) && !IsCPURunning()) {
 			if (m_cursor != 0xffff && m_aLinePC[m_cursor]>0) {
@@ -372,6 +384,7 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 			currAddr = GetRegs().PC;
 		Invalidate();
 	} else if (nChar == VK_ESCAPE) {
+		m_selecting = false;
 		if (IsCPURunning()) {
 			CPUStop();
 		}
@@ -420,8 +433,10 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 			currAddr = GetRegs().PC;
 		GetParent()->Invalidate();
 	} else if (nChar == VK_F9 && m_cursor != 0xffff && m_aLinePC[m_cursor]>0) {
-		if (m_cursor<MAX_CODE_LINES)
+		if (m_cursor<MAX_CODE_LINES) {
 			TogglePCBreakpoint(m_aLinePC[m_cursor]);
+			theApp.GetMainFrame()->BreakpointChanged();
+		}
 		Invalidate();
 	} else if (nChar == VK_F5) {
 		if (GetKeyState(VK_SHIFT) & 0x8000)
@@ -429,6 +444,21 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		else
 			CPUGo();
 		Invalidate();
+	}
+
+	if (nChar == VK_UP || nChar == VK_DOWN || nChar == VK_LEFT || nChar == VK_RIGHT) {
+		if (GetKeyState(VK_SHIFT) & 0x8000) {
+			if (m_selecting) {
+				if (m_cursor != 0xffff)
+					m_selCursor = m_cursor;
+			} else if (wasCursor) {
+				m_selCursor = m_cursor;
+				m_selFirst = prevAddr;
+				m_selecting = true;
+			}
+		} else {
+			m_selecting = false;
+		}
 	}
 
 	CDockablePane::OnKeyDown(nChar, nRepCnt, nFlags);
@@ -441,24 +471,31 @@ void CCodeView::FocusPC() // make sure PC is in view
 		currAddr = r.PC;
 }
 
+void CCodeView::FocusAddr(uint16_t addr) // make sure addr is in window
+{
+	if (addr < currAddr || addr >= bottomAddr) {
+		currAddr = addr;
+		Invalidate();
+	}
+}
+
 void CCodeView::SetBP() // make sure PC is in view
 {
-	if (m_cursor<MAX_CODE_LINES && m_cursor!=0xffff && m_aLinePC[m_cursor]>0)
+	if (m_cursor<MAX_CODE_LINES && m_cursor!=0xffff && m_aLinePC[m_cursor]>0) {
 		TogglePCBreakpoint(m_aLinePC[m_cursor]);
+		theApp.GetMainFrame()->BreakpointChanged();
+	}
 	Invalidate();
 }
 
 UINT CCodeView::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CDockablePane::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB;
 }
 
 
 void CCodeView::OnSysKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar == VK_F10) {
 		CPUStepOver();
 		if (GetRegs().PC<currAddr || (currAddr<bottomAddr && GetRegs().PC>=bottomAddr))
@@ -472,7 +509,6 @@ void CCodeView::OnSysKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 void CCodeView::OnSysKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar == VK_F10) {
 		return;
 	}
@@ -483,45 +519,81 @@ void CCodeView::OnSysKeyUp(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 void CCodeView::OnSysCommand(UINT nID, LPARAM lParam)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nID == SC_KEYMENU) // F10 pressed
 		::SendMessage(GetSafeHwnd(), WM_KEYDOWN, VK_F10, NULL);
-	// The NULL in LPARAM is kinda sloppy. If you use key-message nuances, invest here a bit further.
 	else
 		CDockablePane::OnSysCommand(nID, lParam);
 }
 
-
 void CCodeView::OnKillFocus(CWnd* pNewWnd)
 {
+	if (m_selecting) {
+		m_selecting = false;
+		Invalidate();
+	}
 	CDockablePane::OnKillFocus(pNewWnd);
-
-	// TODO: Add your message handler code here
 }
 
 
 void CCodeView::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->m_currView = S6_CODE;
 
 	if (point.y > CODE_BAR_HEIGHT && !IsCPURunning()) {
 
 		if (point.x < CODE_LEFT_MARGIN) {
 			int line = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
-			if (line<MAX_CODE_LINES && m_aLinePC[line]>=0)
+			if (line<MAX_CODE_LINES && m_aLinePC[line]>=0) {
 				TogglePCBreakpoint(m_aLinePC[line]);
-		} else
+				theApp.GetMainFrame()->BreakpointChanged();
+			}
+		} else {
 			m_cursor = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
+			m_leftmouse = true;
+		}
 		Invalidate();
 	}
 
 	CDockablePane::OnLButtonDown(nFlags, point);
 }
 
-void CCodeView::OnLButtonDblClk(UINT nFlags, CPoint point)
+void CCodeView::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	// TODO: Add your message handler code here and/or call default
+	m_leftmouse = false;
+	CDockablePane::OnLButtonUp(nFlags, point);
+}
 
+void CCodeView::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// TODO: Add your message handler code here and/or call default
+	if (m_leftmouse) {
+		if (point.y>=CODE_BAR_HEIGHT) {
+			if (!m_selecting) {
+				uint16_t line = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
+				if (line<MAX_CODE_LINES && m_aLinePC[line]>=0) {
+					m_selFirst = m_aLinePC[line];
+					m_selecting = true;
+					m_selCursor = line;
+					Invalidate();
+				}
+			} else {
+				int line = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
+				if (line != m_selCursor) {
+					m_selCursor = line;
+					Invalidate();
+				}
+			}
+		}
+		return;
+	}
+	CDockablePane::OnMouseMove(nFlags, point);
+}
+
+
+void CCodeView::OnLButtonDblClk(UINT nFlags, CPoint point)
+{
 	if (point.y > CODE_BAR_HEIGHT && !IsCPURunning()) {
 		if (point.x >= CODE_LEFT_MARGIN) {
 			int line = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
@@ -552,7 +624,6 @@ void CCodeView::OnAssembled(uint16_t nextAddr)
 
 void CCodeView::OnButtonStop()
 {
-	// TODO: Add your command handler code here
 	CPUStop();
 	Invalidate();
 }
@@ -560,7 +631,6 @@ void CCodeView::OnButtonStop()
 
 void CCodeView::OnButtonGo()
 {
-	// TODO: Add your command handler code here
 	if (!IsCPURunning())
 		CPUGo();
 }
@@ -568,46 +638,33 @@ void CCodeView::OnButtonGo()
 
 void CCodeView::OnButtonReverse()
 {
-	// TODO: Add your command handler code here
 	CPUStepBack();
 	Invalidate();
 }
 
-
 void CCodeView::OnButtonStep()
 {
-	// TODO: Add your command handler code here
 	CPUStop();
 	Invalidate();
 }
 
-
 void CCodeView::OnButtonStepBack()
 {
-	// TODO: Add your command handler code here
 	CPUStepBack();
 	Invalidate();
 }
 
-
 void CCodeView::OnButtonBreak()
 {
-	// TODO: Add your command handler code here
 	if (m_cursor != 0xffff && m_aLinePC[m_cursor]>=0) {
 		TogglePCBreakpoint(m_aLinePC[m_cursor]);
+		theApp.GetMainFrame()->BreakpointChanged();
 		Invalidate();
 	}
 }
 
-
-
-
-
-
 void CCodeView::OnDropFiles(HDROP hDropInfo)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	CString sFile;
 	DWORD   nBuffer = 0;
 
@@ -624,10 +681,53 @@ void CCodeView::OnDropFiles(HDROP hDropInfo)
 }
 
 
-void CAsmEdit::OnKillFocus(CWnd* pNewWnd)
+void CCodeView::OnEditCopy()
 {
-	CEdit::OnKillFocus(pNewWnd);
+	if (m_selecting) {
+		int l = m_selCursor;
+		int selAddr = m_aLinePC[l];
 
-	// TODO: Add your message handler code here
-	ShowWindow(SW_HIDE);
+		while (selAddr<0 && l<m_numLines)
+			selAddr = m_aLinePC[--l];
+		if (l==m_numLines && selAddr<0)
+			selAddr = bottomAddr;
+
+		uint16_t a0 = (uint16_t)selAddr>m_selFirst ? m_selFirst : (uint16_t)selAddr;
+		uint16_t a1 = (uint16_t)selAddr>m_selFirst ? (uint16_t)selAddr : m_selFirst;
+
+		int chars = (a1-a0) * 64;
+		if (char *tmp = (char*)malloc(chars)) {
+			int len = 0;
+			while (a0<=a1) {
+				int skp = 0;
+				char instr[64];
+				if (const wchar_t *label = GetSymbol(a0)) {
+					size_t newlen = 0;
+					char label8[256];
+					wcstombs_s(&newlen, label8, label, sizeof(label8)-1);
+					len += sprintf_s(tmp+len, chars-len, "             %s:\r\n", label8);
+				}
+				int bts = Disassemble(a0, instr, sizeof(instr), skp);
+				len += sprintf_s(tmp+len, chars-len, "%04x %s\r\n", a0, instr);
+				a0 += bts;
+			}
+			tmp[len] = 0;
+			if (OpenClipboard()) {
+				if (EmptyClipboard()) {
+					HGLOBAL clipbuffer = GlobalAlloc(GMEM_DDESHARE, len+1);
+					char* buffer = (char*)GlobalLock(clipbuffer);
+					strcpy_s(buffer, len+1, tmp);
+					GlobalUnlock(clipbuffer);
+					SetClipboardData(CF_TEXT, clipbuffer);
+				}
+				CloseClipboard();
+			}
+			free(tmp);
+		}
+	}
 }
+
+
+
+
+

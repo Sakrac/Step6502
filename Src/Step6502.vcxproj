@@ -191,6 +191,7 @@
     </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BreakpointList.h" />
     <ClInclude Include="machine.h" />
     <ClInclude Include="boot_ram.h" />
     <ClInclude Include="ChildView.h" />
@@ -208,6 +209,7 @@
     <ClInclude Include="Step6502.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BreakpointList.cpp" />
     <ClCompile Include="machine.cpp" />
     <ClCompile Include="boot_ram.cpp" />
     <ClCompile Include="ChildView.cpp" />

@@ -67,6 +67,7 @@ public:
 	uint16_t bottomAddr;
 
 	void FocusPC();
+	void FocusAddr(uint16_t addr); // make sure addr is in window
 	void SetBP();
 	void OnAssembled(uint16_t nextAddr);
 
@@ -77,7 +78,11 @@ protected:
 	uint16_t m_charWidth;
 	uint16_t m_numLines;
 	uint16_t m_cursor;
+	int m_selCursor;
+	uint16_t m_selFirst;
 	int m_nextAssembleAddr;
+	bool m_selecting;
+	bool m_leftmouse;
 
 	int m_aLinePC[MAX_CODE_LINES];
 
@@ -104,6 +109,10 @@ public:
 	afx_msg void OnButtonBreak();
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
 	afx_msg void OnDropFiles(HDROP hDropInfo);
+
+	void OnEditCopy();
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
 };
 
 

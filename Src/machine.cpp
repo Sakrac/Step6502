@@ -20,8 +20,10 @@ Regs currRegs;
 uint32_t cycles;
 
 // breakpoints
-uint16_t aBP_PC[MAX_PC_BREAKPOINTS];
+uint16_t aBP_PC[MAX_PC_BREAKPOINTS];	// active breakpoints
+uint32_t aBP_ID[MAX_PC_BREAKPOINTS];	// breakpoint IDs, for visualization
 uint16_t nBP_PC = 0;
+uint32_t nBP_NextID = 0;
 uint16_t bStopCPU = 0;
 uint16_t bCPUIRQ = 0;
 uint16_t bCPUNMI = 0;
@@ -1059,6 +1061,13 @@ uint16_t GetPCBreakpoints(uint16_t **pBP)
 	return nBP_PC;
 }
 
+uint16_t GetPCBreakpoints(uint16_t **pBP, uint32_t **pID)
+{
+	*pBP = aBP_PC;
+	*pID = aBP_ID;
+	return nBP_PC;
+}
+
 void TogglePCBreakpoint(uint16_t addr)
 {
 	WaitForSingleObject(mutexBP, INFINITE);
@@ -1067,12 +1076,15 @@ void TogglePCBreakpoint(uint16_t addr)
 		if (aBP_PC[b]==addr) {
 			nBP_PC--;
 			aBP_PC[b] = aBP_PC[nBP_PC];
+			aBP_ID[b] = aBP_ID[nBP_PC];
 			ReleaseMutex(mutexBP);
 			return;
 		}
 	}
-	if (nBP_PC < MAX_PC_BREAKPOINTS)
+	if (nBP_PC < MAX_PC_BREAKPOINTS) {
+		aBP_ID[nBP_PC] = nBP_NextID++;
 		aBP_PC[nBP_PC++] = addr;
+	}
 	ReleaseMutex(mutexBP);
 }
 
@@ -1086,11 +1098,36 @@ void SetPCBreakpoint(uint16_t addr)
 			return;
 		}
 	}
-	if (nBP_PC < MAX_PC_BREAKPOINTS)
+	if (nBP_PC < MAX_PC_BREAKPOINTS) {
+		aBP_ID[nBP_PC] = nBP_NextID++;
 		aBP_PC[nBP_PC++] = addr;
+	}
 	ReleaseMutex(mutexBP);
 }
 
+void RemoveBreakpointByID(uint32_t id)
+{
+	WaitForSingleObject(mutexBP, INFINITE);
+	for (int b = 0; b<nBP_PC; b++) {
+		if (aBP_ID[b] == id) {
+			nBP_PC--;
+			aBP_PC[b] = aBP_PC[nBP_PC];
+			aBP_ID[b] = aBP_ID[nBP_PC];
+		}
+	}
+	ReleaseMutex(mutexBP);
+}
+
+bool GetBreakpointAddrByID(uint32_t id, uint16_t *addr) {
+	for (int b = 0; b<nBP_PC; b++) {
+		if (aBP_ID[b] == id) {
+			*addr = aBP_PC[b];
+			return true;
+		}
+	}
+	return false;
+
+}
 
 int InstructionBytes(uint16_t addr, bool illegals)
 {

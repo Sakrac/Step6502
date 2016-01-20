@@ -175,4 +175,3 @@ void CStep6502App::OnButtonStop()
 	// TODO: Add your command handler code here
 }
 
-

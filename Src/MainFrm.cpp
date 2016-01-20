@@ -72,6 +72,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_FONTSIZE_20, &CMainFrame::OnFontsize20)
 	ON_COMMAND(ID_FONTSIZE_22, &CMainFrame::OnFontsize22)
 	ON_COMMAND(ID_FONTSIZE_24, &CMainFrame::OnFontsize24)
+	ON_COMMAND(ID_EDIT_COPY, &CMainFrame::OnEditCopy)
 END_MESSAGE_MAP()
 
 static UINT indicators[] =
@@ -189,6 +190,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_graphicView.EnableDocking(CBRS_ALIGN_ANY);
 	DockPane(&m_graphicView);
 
+	m_breakpoints.EnableDocking(CBRS_ALIGN_ANY);
+	DockPane(&m_breakpoints);
+
 	// set the visual manager and style based on persisted value
 	OnApplicationLook(theApp.m_nAppLook);
 
@@ -294,6 +298,7 @@ BOOL CMainFrame::CreateDockingWindows()
 		TRACE0("Failed to create Memory window\n");
 		return FALSE; // failed to create
 	}
+	m_memory.m_viewIndex = 0;
 
 	// Create memory pane window
 	CString strMem2Wnd;
@@ -303,13 +308,14 @@ BOOL CMainFrame::CreateDockingWindows()
 		TRACE0("Failed to create Memory window\n");
 		return FALSE; // failed to create
 	}
+	m_memory2.m_viewIndex = 1;
 
 	// Create code pane window
 	CString strCodeWnd;
 	bNameValid = strCodeWnd.LoadString(IDS_CODE_VIEW);
 	ASSERT(bNameValid);
 	if (!m_code.Create(strCodeWnd, this, CRect(0, 0, 256, 512), TRUE, ID_VIEW_CODE, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_LEFT | CBRS_FLOAT_MULTI)) {
-		TRACE0("Failed to create Memory window\n");
+		TRACE0("Failed to create Code window\n");
 		return FALSE; // failed to create
 	}
 
@@ -317,10 +323,17 @@ BOOL CMainFrame::CreateDockingWindows()
 	bNameValid = strGraphicWnd.LoadString(IDS_GRAPHIC_VIEW);
 	ASSERT(bNameValid);
 	if (!m_graphicView.Create(strGraphicWnd, this, CRect(0, 0, 640, 480), TRUE, ID_VIEW_GRAPHIC, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
-		TRACE0("Failed to create Memory window\n");
+		TRACE0("Failed to create Graphic window\n");
 		return FALSE; // failed to create
 	}
 	
+	CString strBreakptsWnd;
+	bNameValid = strBreakptsWnd.LoadString(IDS_BREAKPOINTS);
+	ASSERT(bNameValid);
+	if (!m_breakpoints.Create(strBreakptsWnd, this, CRect(0, 0, 640, 480), TRUE, ID_BREAKPOINTS, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
+		TRACE0("Failed to create Breakpoints window\n");
+		return FALSE; // failed to create
+	}
 
 	SetDockingWindowIcons(theApp.m_bHiColorIcons);
 	return TRUE;
@@ -672,6 +685,7 @@ void CMainFrame::LoadBinary(CString &file, int filetype, int address, int setPC,
 		}
 
 		ReadSymbols(file);
+		m_breakpoints.Rebuild();
 
 		InvalidateAll();
 	}
@@ -685,7 +699,8 @@ void CMainFrame::TryLoadBinary(const wchar_t *file)
 	m_loadAddressDialog.m_bResetUndo = theApp.GetProfileInt(L"Last binary file", L"Reset backtrace", 1);
 	m_loadAddressDialog.m_bSetPCToLoadAddress = theApp.GetProfileInt(L"Last binary file", L"Set PC to Load Address", 1);
 
-	m_loadAddressDialog.DoModal();
+	if (m_loadAddressDialog.DoModal() == IDCANCEL)
+		return;
 
 	theApp.WriteProfileInt(L"Last binary file", L"Filetype", m_loadAddressDialog.m_bFileType);
 	theApp.WriteProfileString(L"Last binary file", L"LoadAddress", m_loadAddressDialog.m_AddrStr);
@@ -714,7 +729,8 @@ void CMainFrame::OnButtonLoad()
 	CFileDialog fileDialog(true);
 	fileDialog.AddText(ID_LOAD_ADDRESS_TEXT, L"Address:");
 
-	fileDialog.DoModal();
+	if (fileDialog.DoModal() == IDCANCEL)
+		return;
 
 	m_loadAddressDialog.m_bFileType = theApp.GetProfileInt(L"Last binary file", L"Filetype", 0);
 	m_loadAddressDialog.m_AddrStr = theApp.GetProfileString(L"Last binary file", L"LoadAddress", L"800");
@@ -765,41 +781,57 @@ void CMainFrame::UpdateFontSize(int newSize)
 
 void CMainFrame::OnFontsize12()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(12);
 }
 
 void CMainFrame::OnFontsize14()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(14);
 }
 
 void CMainFrame::OnFontsize16()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(16);
 }
 
 void CMainFrame::OnFontsize18()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(18);
 }
 
 void CMainFrame::OnFontsize20()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(20);
 }
 
 void CMainFrame::OnFontsize22()
 {
-	// TODO: Add your command handler code here
+	UpdateFontSize(22);
 }
 
 void CMainFrame::OnFontsize24()
 {
-	// TODO: Add your command handler code here
 	UpdateFontSize(24);
+}
+
+
+void CMainFrame::OnEditCopy()
+{
+	switch (m_currView) {
+		case S6_REG:
+			m_registers.OnEditCopy();
+			break;
+		case S6_GFX:
+			m_graphicView.OnEditCopy();
+			break;
+		case S6_MEM1:
+			m_memory.OnEditCopy();
+			break;
+		case S6_MEM2:
+			m_memory2.OnEditCopy();
+			break;
+		case S6_CODE:
+			m_code.OnEditCopy();
+			break;
+	}
 }

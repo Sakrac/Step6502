@@ -28,7 +28,6 @@ END_MESSAGE_MAP()
 
 void CGraphicField::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 {
-	// TODO: Add your message handler code here and/or call default
 	if (nChar==VK_RETURN && m_view) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
@@ -40,8 +39,6 @@ void CGraphicField::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 
 UINT CGraphicField::OnGetDlgCode()
 {
-	// TODO: Add your message handler code here and/or call default
-
 	return CEdit::OnGetDlgCode() | DLGC_WANTALLKEYS | DLGC_WANTARROWS;
 }
 
@@ -72,7 +69,6 @@ END_MESSAGE_MAP()
 
 void CGraphicStyle::OnCbnSelchange()
 {
-	// TODO: Add your control notification handler code here
 	if (m_view) {
 		m_view->SetLayout((CGraphicView::GraphicLayout)GetCurSel());
 		m_view->Invalidate();
@@ -120,6 +116,7 @@ BEGIN_MESSAGE_MAP(CGraphicView, CDockablePane)
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
 	ON_WM_MOUSELEAVE()
+	ON_COMMAND(ID_EDIT_COPY, &CGraphicView::OnEditCopy)
 END_MESSAGE_MAP()
 
 
@@ -131,7 +128,6 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	if (CDockablePane::OnCreate(lpCreateStruct) == -1)
 		return -1;
 
-	// TODO:  Add your specialized creation code here
 	CRect addrRect(0, 0, 128, 24);
 	if (!m_editAddress.Create(ES_LEFT | WS_CHILD | WS_VISIBLE | WS_BORDER | ES_WANTRETURN, addrRect, this, ID_GRAPHIC_ADDRESS_FIELD)) {
 		TRACE0("Failed to create address field\n");
@@ -178,14 +174,14 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_editWidth.SetGraphicView(this, CGraphicField::FieldType::WIDTH);
 	m_editHeight.SetGraphicView(this, CGraphicField::FieldType::HEIGHT);
 	m_editFontAddr.SetGraphicView(this, CGraphicField::FieldType::FONT);
-
 	return 0;
 }
 
 HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 {
-	BITMAPINFO *bmi = (BITMAPINFO *)malloc(sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256);
-	BITMAPINFOHEADER &bih(bmi->bmiHeader);
+	char bmimem[sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256];
+	BITMAPINFO *bmi = (BITMAPINFO*)bmimem;
+	BITMAPINFOHEADER &bih = bmi->bmiHeader;
 	bih.biSize = sizeof(BITMAPINFOHEADER);
 	bih.biWidth = m_bytesWide * 8;
 	bih.biHeight = -((m_linesHigh+7) & (~7L));
@@ -301,9 +297,6 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 			break;
 		}
 	}
-
-	free(bmi);
-
 	return hbmp;
 }
 
@@ -314,7 +307,6 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 void CGraphicView::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
-					   // TODO: Add your message handler code here
 					   // Do not call CDockablePane::OnPaint() for painting messages
 	CDC *pDC = &dc;
 
@@ -396,13 +388,11 @@ void CGraphicView::OnSize(UINT nType, int cx, int cy)
 {
 	CDockablePane::OnSize(nType, cx, cy);
 
-	// TODO: Add your message handler code here
 	Invalidate();
 }
 
 void CGraphicView::OnLButtonDblClk(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
 	m_zoom = (m_zoom+1)&3;
 	Invalidate();
 }
@@ -410,7 +400,9 @@ void CGraphicView::OnLButtonDblClk(UINT nFlags, CPoint point)
 
 void CGraphicView::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->m_currView = S6_GFX;
+
 	if (point.y > EDIT_BAR_HEIGHT) {
 		m_drag = true;
 		m_dragPrev = point;
@@ -424,8 +416,6 @@ void CGraphicView::OnLButtonDown(UINT nFlags, CPoint point)
 
 void CGraphicView::OnLButtonUp(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	m_drag = false;
 	CDockablePane::OnLButtonUp(nFlags, point);
 }
@@ -433,8 +423,6 @@ void CGraphicView::OnLButtonUp(UINT nFlags, CPoint point)
 
 void CGraphicView::OnMouseMove(UINT nFlags, CPoint point)
 {
-	// TODO: Add your message handler code here and/or call default
-
 	if (m_drag) {
 		if (m_dragPrev != point) {
 			m_x -= point.x - m_dragPrev.x;
@@ -451,7 +439,32 @@ void CGraphicView::OnMouseMove(UINT nFlags, CPoint point)
 
 void CGraphicView::OnMouseLeave()
 {
-	// TODO: Add your message handler code here and/or call default
 	m_drag = false;
 	CDockablePane::OnMouseLeave();
+}
+
+
+void CGraphicView::OnEditCopy()
+{
+	if (OpenClipboard()) {
+		if (EmptyClipboard()) {
+			CBitmap * junk = new CBitmap();
+			CClientDC cdc(this);
+			CDC dc;
+			dc.CreateCompatibleDC(&cdc);
+			int sw = m_bytesWide * 8;
+			int sh = m_linesHigh;
+			junk->CreateCompatibleBitmap(&cdc, sw, sh);
+			dc.SelectObject(junk);
+			CDC otherDC;
+			otherDC.CreateCompatibleDC(&dc);
+			HBITMAP currBitmap = Create8bppBitmap(otherDC);
+			CBitmap *pPrevBmp = otherDC.SelectObject(CBitmap::FromHandle(currBitmap));
+			dc.StretchBlt(0, 0, sw, sh, &otherDC, 0, 0, sw, sh, SRCCOPY);
+			otherDC.SelectObject(pPrevBmp);
+			SetClipboardData(CF_BITMAP, junk->m_hObject);
+			DeleteObject(currBitmap);
+		}
+		CloseClipboard();
+	}
 }

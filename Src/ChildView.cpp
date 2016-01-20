@@ -47,8 +47,6 @@ void CChildView::OnPaint()
 {
 	CPaintDC dc(this); // device context for painting
 	
-	// TODO: Add your message handler code here
-	
 	// Do not call CWnd::OnPaint() for painting messages
 }
 

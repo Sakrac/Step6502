@@ -75,14 +75,22 @@ public:
 
 	CPoint selectPoint;
 	bool selectAddr;
+	int m_viewIndex;
 
 protected:
 	CMemoryAddress m_address;
 	CMemoryColumns m_columns;
 	uint16_t m_editLeft, m_editRight;
+	uint16_t m_charWidth, m_lineHeight;
 
 	SMemDelta m_currDelta;
 	SMemDelta m_prevDelta;
+
+	uint16_t m_selFirst;
+	uint16_t m_selAddr;
+	uint16_t m_selEnd;
+	bool m_selecting;
+	bool m_mouse_left_down;
 
 	DECLARE_MESSAGE_MAP()
 public:
@@ -95,6 +103,10 @@ public:
 	afx_msg UINT OnGetDlgCode();
 	afx_msg void OnKillFocus(CWnd* pNewWnd);
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+
+	void OnEditCopy();
 };
 
 

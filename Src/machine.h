@@ -57,5 +57,9 @@ void CPUIRQ();
 void CPUNMI();
 
 uint16_t GetPCBreakpoints(uint16_t **pBP);
+uint16_t GetPCBreakpoints(uint16_t **pBP, uint32_t **pID);
 void TogglePCBreakpoint(uint16_t addr);
 void SetPCBreakpoint(uint16_t addr);
+void RemoveBreakpointByID(uint32_t id);
+bool GetBreakpointAddrByID(uint32_t id, uint16_t *addr);
+
