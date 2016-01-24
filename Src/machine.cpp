@@ -6,11 +6,13 @@
 #include "cpu.h"
 #include "Sym.h"
 #include "boot_ram.h"
+#include "Expressions.h"
 
 #define UNDO_BUFFER_SIZE (16*1024*1024)
 #define MAX_PC_BREAKPOINTS 256
 #define CPU_EMULATOR_THREAD_STACK 8192
 #define THREAD_CPU_CYCLES_PER_UPDATE 2000
+#define MAX_BP_CONDITIONS 4*1024
 
 uint8_t *ram = nullptr;
 uint8_t *undo = nullptr;
@@ -19,16 +21,34 @@ uint32_t undo_newest = 0;
 Regs currRegs;
 uint32_t cycles;
 
+struct sBPCond {
+	uint16_t offs;
+	uint16_t size;
+};
+
+// in order to easily make a snapshot of breakpoints they are organized in
+// a single array of PC breakpoints, then disabled breakpoints.
+// This makes breakpoint management a little more tiptoey but
+// checking for breakpoints is trivial and linear in memory which is more
+// desired.
+
 // breakpoints
 uint16_t aBP_PC[MAX_PC_BREAKPOINTS];	// active breakpoints
 uint32_t aBP_ID[MAX_PC_BREAKPOINTS];	// breakpoint IDs, for visualization
-uint16_t nBP_PC = 0;
+struct sBPCond aBP_CN[MAX_PC_BREAKPOINTS];
+uint8_t aBP_EX[MAX_BP_CONDITIONS];
+uint16_t nBP = 0;		// total number of PC breakpoints
+uint16_t nBP_PC = 0;	// number of PC breakpoints
+uint16_t nBP_DS = 0;	// number of disabled breakpoints
+uint16_t nBP_EX_Len = 0;
 uint32_t nBP_NextID = 0;
 uint16_t bStopCPU = 0;
 uint16_t bCPUIRQ = 0;
 uint16_t bCPUNMI = 0;
 
 HANDLE mutexBP = 0;
+
+
 
 // runs the CPU in a thread so the UI can continue
 HANDLE hThreadCPU = 0;
@@ -817,11 +837,17 @@ void CPUStep()
 		cycles += currRegs.T;
 }
 
-bool CheckPCBreakpoint(uint16_t addr, uint16_t num = nBP_PC, uint16_t *cmp = aBP_PC)
+/*
+struct sBPCond _aBP_CN[MAX_PC_BREAKPOINTS];
+uint8_t _aBP_EX[MAX_BP_CONDITIONS];
+*/
+
+bool CheckPCBreakpoint(uint16_t addr, const uint16_t num = nBP, const uint16_t *cmp = aBP_PC,
+					   const struct sBPCond *cond = aBP_CN, const uint8_t *expr = aBP_EX)
 {
 	for (uint16_t b = 0; b<num; b++) {
 		if (cmp[b] == addr)
-			return true;
+			return !cond[b].size || EvalExpression(expr + cond[b].offs);
 	}
 	return false;
 }
@@ -885,11 +911,16 @@ static void *CPUGoThreadRun(void *param)
 {
 	// copy breakpoints to stack so UI can modify original freely
 	uint16_t _aBP_PC[MAX_PC_BREAKPOINTS];
-	uint16_t _nBP_PC = nBP_PC;
+	struct sBPCond _aBP_CN[MAX_PC_BREAKPOINTS];
+	uint8_t _aBP_EX[MAX_BP_CONDITIONS];
+	uint16_t _nBP_PC = nBP;
 
 	WaitForSingleObject(mutexBP, INFINITE);
 
 	memcpy(_aBP_PC, aBP_PC, sizeof(uint16_t) * _nBP_PC);
+	memcpy(_aBP_CN, aBP_CN, sizeof(_aBP_CN[0]) * _nBP_PC);
+	if (nBP_EX_Len)
+		memcpy(_aBP_EX, aBP_EX, nBP_EX_Len);
 
 	// keep regs and cycles on stack for the same reason
 	Regs stackRegs = currRegs;
@@ -925,8 +956,11 @@ static void *CPUGoThreadRun(void *param)
 			Sleep(1);
 			updateCycles = stackCycles;
 			WaitForSingleObject(mutexBP, INFINITE);
-			_nBP_PC = nBP_PC;
+			_nBP_PC = nBP;
 			memcpy(_aBP_PC, aBP_PC, sizeof(uint16_t) * _nBP_PC);
+			memcpy(_aBP_CN, aBP_CN, sizeof(_aBP_CN[0]) * _nBP_PC);
+			if (nBP_EX_Len)
+				memcpy(_aBP_EX, aBP_EX, nBP_EX_Len);
 			currRegs = stackRegs;
 			cycles = stackCycles;
 			uint16_t stopped = bStopCPU;
@@ -934,7 +968,7 @@ static void *CPUGoThreadRun(void *param)
 			if (stopped)
 				break;
 		}
-	} while (!CheckPCBreakpoint(stackRegs.PC, _nBP_PC, _aBP_PC));
+	} while (!CheckPCBreakpoint(stackRegs.PC, _nBP_PC, _aBP_PC, _aBP_CN, aBP_EX));
 
 	currRegs = stackRegs;
 	cycles = stackCycles;
@@ -966,11 +1000,16 @@ static void *CPUReverseThreadRun(void *param)
 {
 	// copy breakpoints to stack so UI can modify original freely
 	uint16_t _aBP_PC[MAX_PC_BREAKPOINTS];
-	uint16_t _nBP_PC = nBP_PC;
+	struct sBPCond _aBP_CN[MAX_PC_BREAKPOINTS];
+	uint8_t _aBP_EX[MAX_BP_CONDITIONS];
+	uint16_t _nBP_PC = nBP;
 
 	WaitForSingleObject(mutexBP, INFINITE);
 
 	memcpy(_aBP_PC, aBP_PC, sizeof(uint16_t) * _nBP_PC);
+	memcpy(_aBP_CN, aBP_CN, sizeof(_aBP_CN[0]) * _nBP_PC);
+	if (nBP_EX_Len)
+		memcpy(_aBP_EX, aBP_EX, nBP_EX_Len);
 
 	// keep regs and cycles on stack for the same reason
 	Regs stackRegs = currRegs;
@@ -989,7 +1028,7 @@ static void *CPUReverseThreadRun(void *param)
 			Sleep(1);
 			updateCycles = stackCycles;
 			WaitForSingleObject(mutexBP, INFINITE);
-			_nBP_PC = nBP_PC;
+			_nBP_PC = nBP;
 			memcpy(_aBP_PC, aBP_PC, sizeof(uint16_t) * _nBP_PC);
 			currRegs = stackRegs;
 			cycles = stackCycles;
@@ -998,7 +1037,7 @@ static void *CPUReverseThreadRun(void *param)
 			if (stopped || !hadStep)
 				break;
 		}
-	} while (!CheckPCBreakpoint(stackRegs.PC, _nBP_PC, _aBP_PC));
+	} while (!CheckPCBreakpoint(stackRegs.PC, _nBP_PC, _aBP_PC, _aBP_CN, aBP_EX));
 
 	currRegs = stackRegs;
 	cycles = stackCycles;
@@ -1055,78 +1094,223 @@ void CPUNMI()
 	}
 }
 
-uint16_t GetPCBreakpoints(uint16_t **pBP)
-{
-	*pBP = aBP_PC;
-	return nBP_PC;
-}
-
-uint16_t GetPCBreakpoints(uint16_t **pBP, uint32_t **pID)
+uint16_t GetPCBreakpointsID(uint16_t **pBP, uint32_t **pID, uint16_t &nDS)
 {
 	*pBP = aBP_PC;
 	*pID = aBP_ID;
-	return nBP_PC;
+	nDS = nBP_DS;
+	return nBP;
 }
 
-void TogglePCBreakpoint(uint16_t addr)
+uint16_t GetNumPCBreakpoints()
 {
-	WaitForSingleObject(mutexBP, INFINITE);
+	return nBP;
+}
 
-	for (int b = 0; b<nBP_PC; b++) {
-		if (aBP_PC[b]==addr) {
-			nBP_PC--;
-			aBP_PC[b] = aBP_PC[nBP_PC];
-			aBP_ID[b] = aBP_ID[nBP_PC];
-			ReleaseMutex(mutexBP);
-			return;
+uint16_t* GetPCBreakpoints()
+{
+	return aBP_PC;
+}
+
+void EraseBPCondition(uint16_t index)
+{
+	if (aBP_CN[index].size != 0) {
+		uint16_t o = aBP_CN[index].offs;
+		uint16_t s = aBP_CN[index].size;
+		uint8_t *w = aBP_EX + o;
+		const uint8_t *r = w + s;
+		uint16_t m = nBP_EX_Len - o - s;
+		for (int b = 0; b<m; b++)
+			*w++ = *r++;
+		aBP_CN[index].size = 0;
+		for (uint16_t i = 0; i<nBP; i++) {
+			if (aBP_CN[i].size && aBP_CN[i].offs>o)
+				aBP_CN[i].offs -= s;
 		}
 	}
-	if (nBP_PC < MAX_PC_BREAKPOINTS) {
-		aBP_ID[nBP_PC] = nBP_NextID++;
-		aBP_PC[nBP_PC++] = addr;
+}
+
+bool PushBackBPCondition(uint16_t index, const uint8_t *cond, uint16_t length)
+{
+	if (length && length < (MAX_BP_CONDITIONS-nBP_EX_Len)) {
+		memcpy(aBP_EX + nBP_EX_Len, cond, length);
+		aBP_CN[index].offs = nBP_EX_Len;
+		aBP_CN[index].size = length;
+		nBP_EX_Len += length;
+		return true;
+	}
+	return false;
+}
+
+bool SetBPCondition(uint32_t id, const uint8_t *condition, uint16_t length)
+{
+	uint16_t idx = 0xffff;
+	for (uint16_t i = 0; i<nBP; i++) {
+		if (aBP_ID[i] == id) {
+			WaitForSingleObject(mutexBP, INFINITE);
+			if (length == aBP_CN[i].size) {
+				memcpy(aBP_EX+aBP_CN[i].offs, condition, length);
+				ReleaseMutex(mutexBP);
+				return true;
+			}
+			EraseBPCondition(i);
+			idx = i;
+			break;
+		}
+	}
+	bool ret = false;
+	if (idx != 0xffff) {
+		ret = PushBackBPCondition(idx, condition, length);
+		ReleaseMutex(mutexBP);
+	}
+	return ret;
+}
+
+void ClearBPCondition(uint32_t id)
+{
+	for (uint16_t i = 0; i<nBP; i++) {
+		if (aBP_ID[i] == id) {
+			WaitForSingleObject(mutexBP, INFINITE);
+			EraseBPCondition(i);
+			ReleaseMutex(mutexBP);
+			break;
+		}
+	}
+}
+
+void SwapBPSlots(uint16_t b, uint16_t s)
+{
+	if (s!=b) {
+		uint32_t id = aBP_ID[b]; aBP_ID[b] = aBP_ID[s]; aBP_ID[s] = id;
+		uint16_t t = aBP_PC[b];	aBP_PC[b] = aBP_PC[s]; aBP_PC[s] = t;
+		t = aBP_CN[b].offs; aBP_CN[b].offs = aBP_CN[s].offs; aBP_CN[s].offs = t;
+		t = aBP_CN[b].size; aBP_CN[b].size = aBP_CN[s].size; aBP_CN[s].size = t;
+	}
+}
+
+void MoveBPSlots(uint16_t s, uint16_t d)
+{
+	if (s!=d) {
+		aBP_PC[d] = aBP_PC[s];
+		aBP_ID[d] = aBP_ID[s];
+		aBP_CN[d] = aBP_CN[s];
+	}
+}
+
+uint32_t TogglePCBreakpoint(uint16_t addr)
+{
+	WaitForSingleObject(mutexBP, INFINITE);
+	uint16_t nBP_T = nBP + nBP_DS;
+	for (int b = 0; b<nBP_T; b++) {
+		if (aBP_PC[b]==addr) {
+			uint32_t id = aBP_ID[b];
+			EraseBPCondition(b);
+			if (b>=nBP) {
+				nBP_DS--;
+				MoveBPSlots(nBP+nBP_DS, b);
+			} else {
+				nBP--;
+				MoveBPSlots(nBP, b);
+				if (nBP_DS)
+					MoveBPSlots(nBP+nBP_DS, nBP);
+			}
+			ReleaseMutex(mutexBP);
+			return id;
+		}
+	}
+	if (nBP < MAX_PC_BREAKPOINTS) {
+		if (nBP_DS)
+			MoveBPSlots(nBP, nBP+nBP_DS);
+		aBP_ID[nBP] = nBP_NextID++;
+		aBP_CN[nBP].size = 0;
+		aBP_PC[nBP++] = addr;
 	}
 	ReleaseMutex(mutexBP);
+	return ~0UL;
 }
 
 void SetPCBreakpoint(uint16_t addr)
 {
 	WaitForSingleObject(mutexBP, INFINITE);
 
-	for (int b = 0; b<nBP_PC; b++) {
+	uint16_t nBP_T = nBP + nBP_DS;
+	for (int b = 0; b<nBP_T; b++) {
 		if (aBP_PC[b]==addr) {
 			ReleaseMutex(mutexBP);
 			return;
 		}
 	}
-	if (nBP_PC < MAX_PC_BREAKPOINTS) {
-		aBP_ID[nBP_PC] = nBP_NextID++;
-		aBP_PC[nBP_PC++] = addr;
+	if (nBP < MAX_PC_BREAKPOINTS) {
+		if (nBP_DS)
+			MoveBPSlots(nBP, nBP+nBP_DS);
+		aBP_ID[nBP] = nBP_NextID++;
+		aBP_CN[nBP].size = 0;
+		aBP_PC[nBP++] = addr;
 	}
 	ReleaseMutex(mutexBP);
+}
+
+bool GetBreakpointAddrByID(uint32_t id, uint16_t &addr) {
+	uint16_t nBP_T = nBP + nBP_DS;
+	for (int b = 0; b<nBP_T; b++) {
+		if (aBP_ID[b] == id) {
+			addr = aBP_PC[b];
+			return true;
+		}
+	}
+	return false;
 }
 
 void RemoveBreakpointByID(uint32_t id)
 {
 	WaitForSingleObject(mutexBP, INFINITE);
-	for (int b = 0; b<nBP_PC; b++) {
+	uint16_t nBP_T = nBP + nBP_DS;
+	for (int b = 0; b<nBP_T; b++) {
 		if (aBP_ID[b] == id) {
-			nBP_PC--;
-			aBP_PC[b] = aBP_PC[nBP_PC];
-			aBP_ID[b] = aBP_ID[nBP_PC];
+			EraseBPCondition(b);
+			if (b<nBP) {
+				nBP--;
+				MoveBPSlots(nBP, b);
+				if (nBP_DS)
+					MoveBPSlots(nBP+nBP_DS, nBP);
+			} else {
+				nBP_DS--;
+				if (b!=nBP_DS)
+					MoveBPSlots(b, nBP+nBP_DS);
+			}
 		}
 	}
 	ReleaseMutex(mutexBP);
 }
 
-bool GetBreakpointAddrByID(uint32_t id, uint16_t *addr) {
-	for (int b = 0; b<nBP_PC; b++) {
-		if (aBP_ID[b] == id) {
-			*addr = aBP_PC[b];
-			return true;
+bool EnableBPByID(uint32_t id, bool enable)
+{
+	WaitForSingleObject(mutexBP, INFINITE);
+	if (enable) {
+		uint16_t nBP_T = nBP + nBP_DS;
+		for (int b = nBP; b<nBP_T; b++) {
+			if (aBP_ID[b] == id) {
+				SwapBPSlots(b, nBP);
+				nBP++;
+				nBP_DS--;
+				ReleaseMutex(mutexBP);
+				return true;
+			}
+
+		}
+	} else {
+		for (uint16_t b = 0; b<nBP; b++) {
+			if (aBP_ID[b] == id) {
+				nBP--;
+				nBP_DS++;
+				SwapBPSlots(b, nBP);
+				ReleaseMutex(mutexBP);
+				return true;
+			}
 		}
 	}
+	ReleaseMutex(mutexBP);
 	return false;
-
 }
 
 int InstructionBytes(uint16_t addr, bool illegals)

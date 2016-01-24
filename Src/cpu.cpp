@@ -18,17 +18,6 @@
 #include "stdafx.h"
 #include "cpu.h"
 
-enum StatusFlags {
-	F_C = 1,
-	F_Z = 2,
-	F_I = 4,
-	F_D = 8,
-	F_B = 16,
-	F_U = 32,
-	F_V = 64,
-	F_N = 128,
-};
-
 #define addr_nmi_l 0xfffa
 #define addr_nmi_h 0xfffb
 #define addr_reset_l 0xfffc

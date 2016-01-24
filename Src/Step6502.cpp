@@ -5,6 +5,7 @@
 #include "MainFrm.h"
 #include "machine.h"
 #include "Sym.h"
+#include "Expressions.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -31,6 +32,11 @@ CStep6502App::CStep6502App() : pMain(nullptr)
 
 	// TODO: add construction code here,
 	// Place all significant initialization in InitInstance
+
+#ifdef _DEBUG
+//	TestExpressions();
+#endif
+
 }
 
 // The one and only CStep6502App object

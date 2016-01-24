@@ -91,7 +91,50 @@ Copying after clicking in the register view will copy the registers to the clipb
 
 List of all breakpoints, select a breakpoint and press delete to delete breakpoint or doubleclick a breakpoint to show it in the code view.
 
-There is a column for breakpoint condition, this feature is not ready yet but it was easier to add the condition column while I was adding the pane than to psuh it off to some time later.
+Breakpoints can be disabled by unchecking the checkbox on the left side of the list item of the breakpoint pane.
+
+Full expressions are supported for conditional breakpoints. The following operators and values are allowed:
+
+* Raw numbers (decimal by default, $ preceeds hex and % preceeds binary numbers). Numbers up to 16 bits.
+* **PC**: Current PC
+* **A**: accumulator
+* **X**: x register
+* **Y**: y register
+* **S**: stack register
+* **C**: carry flag (0 or 1)
+* **Z**: zero flag (0 or 1)
+* **I**: interrupt flag (0 or 1)
+* **D**: decimal flag (0 or 1)
+* **V**: overflow flag (0 or 1)
+* **N**: negative flag (0 or 1)
+* **=** or **==**: equals (compare value on left and right side of operator)
+* **\<**: less than
+* **\>**: greater than
+* **\<=**: less than or equal to
+* **\>=**: greater than or equal to
+* **&&**: conditional and (result is 0 or 1 regardless of values)
+* **||**: conditional or (0 or 1)
+* **[**: byte from address within '[' and ']'
+* **]**: end byte address sub-expression
+* **{**: two bytes (address) from address within '{' and '}'
+* **}**: end two byte address sub-expression
+* **(**: mathematical parenthesis
+* **)**: mathematical close parenthesis
+* **+**: add values
+* **-**: subtract values or negate number (depending on what preceeded sign)
+* **\***: multiply
+* **/**: divide
+* **\&**: logical and (14 & 3 => 2)
+* **|**: logical or
+* **^**: exclusive or (eor)
+* **\<\<**: shift Left
+* **\>\>**: shift right
+* **!**: not
+
+Examples:
+
+* Carry not set: !c
+* result of "lda ($a0),y" is greater than 0: [{$a0} + y] > 0
 
 ###Graphic View
 

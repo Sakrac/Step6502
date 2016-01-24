@@ -41,6 +41,7 @@ void CMemoryColumns::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
 		m_memory->bytesWide = (uint16_t)wcstol(address, &end, 10);
 		GetParent()->Invalidate();
+		return;
 	}
 
 	CEdit::OnKeyDown(nChar, nRepCnt, nFlags);
@@ -87,8 +88,8 @@ void CMemoryAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
 		m_memory->currAddr = (uint16_t)wcstol(address, &end, 16);
 		GetParent()->Invalidate();
+		return;
 	}
-
 	CEdit::OnKeyDown(nChar, nRepCnt, nFlags);
 }
 

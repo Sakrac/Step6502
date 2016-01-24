@@ -5,6 +5,7 @@
 #include "Step6502.h"
 #include "BreakpointList.h"
 #include "machine.h"
+#include "Expressions.h"
 
 // CBreakpointEdit
 
@@ -47,6 +48,7 @@ void CBreakpointEdit::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		if (m_breakpoints)
 			m_breakpoints->OnEditField(wide_instruction);
 		ShowWindow(SW_HIDE);
+		return;
 	} else if (nChar==VK_ESCAPE) {
 		ShowWindow(SW_HIDE);
 	}
@@ -80,6 +82,7 @@ BEGIN_MESSAGE_MAP(CBPListCtr, CListCtrl)
 	ON_WM_LBUTTONDOWN()
 	ON_WM_KEYDOWN()
 	ON_WM_LBUTTONDBLCLK()
+	ON_NOTIFY_REFLECT(LVN_ITEMCHANGED, &CBPListCtr::OnLvnItemchanged)
 END_MESSAGE_MAP()
 
 
@@ -192,8 +195,13 @@ void CBreakpointList::OnSelectField(int column, int row, CRect &rect)
 
 void CBreakpointList::OnEditField(wchar_t *text)
 {
-	if (m_field_col>=0 && m_field_row>=0)
+	if (m_field_col>=0 && m_field_row>=0) {
+		uint8_t ops[64];
 		m_bp_listctrl.SetItemText(m_field_row, m_field_col, text);
+		uint32_t len = BuildExpression(text, ops, sizeof(ops));
+		SetBPCondition(m_BP_ID[m_field_row].id, ops, len);
+		m_BP_Expressions[m_BP_ID[m_field_row].id] = text;
+	}
 	m_field_col = m_field_row = -1;
 }
 
@@ -204,6 +212,7 @@ void CBreakpointList::OnClearEditField()
 
 struct sBPSort {
 	uint16_t addr;
+	bool enabled;
 	uint32_t id;
 };
 
@@ -218,7 +227,7 @@ static int _sortBP(const void *A, const void *B)
 void CBreakpointList::RemoveBPByIndex(int idx)
 {
 	if (idx>=0 && idx<(int)m_BP_ID.size()) {
-		RemoveBreakpointByID(m_BP_ID[idx]);
+		RemoveBreakpointByID(m_BP_ID[idx].id);
 	}
 }
 
@@ -226,36 +235,57 @@ void CBreakpointList::GoToBPByIndex(int idx)
 {
 	if (idx>=0 && idx<(int)m_BP_ID.size()) {
 		uint16_t addr;
-		if (GetBreakpointAddrByID(m_BP_ID[idx], &addr)) {
+		if (GetBreakpointAddrByID(m_BP_ID[idx].id, addr)) {
 			theApp.GetMainFrame()->FocusAddr(addr);
 		}
 	}
 }
 
-void CBreakpointList::Rebuild()
+void CBreakpointList::CheckboxState(int idx, bool set) {
+	if (idx>=0 && idx<(int)m_BP_ID.size()) {
+		if (set != m_BP_ID[idx].enabled) {
+			m_BP_ID[idx].enabled = set;
+			EnableBPByID(m_BP_ID[idx].id, set);
+		}
+	}
+}
+
+
+void CBreakpointList::Rebuild(uint32_t id_remove)
 {
 	m_bp_listctrl.DeleteAllItems();
 	m_BP_ID.clear();
 
+	// remove condition string if removed
+	std::map<uint32_t, CString>::iterator f = m_BP_Expressions.find(id_remove);
+	if (f != m_BP_Expressions.end())
+		m_BP_Expressions.erase(f);
+
 	uint16_t *pAddrs;
 	uint32_t *pIDs;
-	if (uint16_t nBP = GetPCBreakpoints(&pAddrs, &pIDs)) {
+	uint16_t nBP_DS;
+	if (uint16_t nBP = GetPCBreakpointsID(&pAddrs, &pIDs, nBP_DS)) {
+		uint16_t nBP_T = nBP + nBP_DS;
 		std::vector<struct sBPSort> bp_sorted;
-		bp_sorted.reserve(nBP);
-		for (int b = 0; b<nBP; b++) {
+		bp_sorted.reserve(nBP_T);
+		for (int b = 0; b<nBP_T; b++) {
 			struct sBPSort bp;
 			bp.addr = pAddrs[b];
 			bp.id = pIDs[b];
+			bp.enabled = b<nBP;
 			bp_sorted.push_back(bp);
 		}
-		qsort(&bp_sorted[0], nBP, sizeof(struct sBPSort), _sortBP);
-		m_BP_ID.reserve(nBP);
-		for (int b = 0; b<nBP; b++) {
+		qsort(&bp_sorted[0], nBP_T, sizeof(struct sBPSort), _sortBP);
+		m_BP_ID.reserve(nBP_T);
+		for (int b = 0; b<nBP_T; b++) {
 			wchar_t addrStr[32];
 			wsprintf(addrStr, L"%04x", bp_sorted[b].addr);
 			m_bp_listctrl.InsertItem(b, addrStr, 0);
-			m_BP_ID.push_back(bp_sorted[b].id);
-			ListView_SetCheckState(m_bp_listctrl.GetSafeHwnd(), b, TRUE);
+			f = m_BP_Expressions.find(bp_sorted[b].id);
+			if (f != m_BP_Expressions.end())
+				m_bp_listctrl.SetItemText(b, 1, f->second);
+			m_BP_ID.push_back(struct sIDInfo(bp_sorted[b].id, bp_sorted[b].enabled));
+			ListView_SetCheckState(m_bp_listctrl.GetSafeHwnd(), b, bp_sorted[b].enabled);
 		}
 	}
 	Invalidate();
@@ -341,4 +371,17 @@ void CBPListCtr::OnLButtonDblClk(UINT nFlags, CPoint point)
 	int item = HitTest(point, &f);
 	if (f & LVHT_ONITEM)
 		m_breakpoints->GoToBPByIndex(item);
+}
+
+
+void CBPListCtr::OnLvnItemchanged(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	// TODO: Add your control notification handler code here
+	*pResult = 0;
+	if (m_breakpoints && pNMHDR) {
+		bool checked = !!ListView_GetCheckState(GetSafeHwnd(), pNMLV->iItem);
+		m_breakpoints->CheckboxState(pNMLV->iItem, checked);
+	}
+
 }

@@ -33,6 +33,7 @@ void CGraphicField::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
 		m_view->SetField(wcstol(address, &end, (m_type==ADDRESS || m_type==FONT) ? 16 : 10), m_type);
 		m_view->Invalidate();
+		return;
 	}
 	CEdit::OnKeyDown(nChar, nRepCnt, nFlags);
 }

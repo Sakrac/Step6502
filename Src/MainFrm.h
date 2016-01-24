@@ -72,7 +72,7 @@ public:
 	void FocusPC() { m_code.FocusPC(); }
 	void FocusAddr(uint16_t addr) { m_code.FocusAddr(addr); }
 	void TryLoadBinary(const wchar_t *name);
-	void BreakpointChanged() { m_breakpoints.Rebuild(); }
+	void BreakpointChanged(uint32_t id=~0UL) { m_breakpoints.Rebuild(id); }
 
 	CFont &Font() { return m_font; }
 

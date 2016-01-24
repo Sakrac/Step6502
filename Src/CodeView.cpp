@@ -57,6 +57,7 @@ void CAsmEdit::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		int len = Assemble(instruction, m_addr);
 		if (len)
 			m_Code->OnAssembled(m_addr + len);
+		return;
 	} else if (nChar==VK_ESCAPE) {
 		ShowWindow(SW_HIDE);
 	}
@@ -83,6 +84,7 @@ void CCodeAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
 		m_Code->currAddr = (uint16_t)wcstol(address, &end, 16);
 		GetParent()->Invalidate();
+		return;
 	}
 
 	CEdit::OnKeyDown(nChar, nRepCnt, nFlags);
@@ -191,7 +193,7 @@ void CCodeView::OnPaint()
 
 		bool isRunning = IsCPURunning();
 
-		uint16_t *pBP, nBP = GetPCBreakpoints(&pBP);
+		uint16_t *pBP = GetPCBreakpoints(), nBP = GetNumPCBreakpoints();
 		bool was_label = false;
 
 		pDC->SetBkMode(TRANSPARENT);
@@ -434,8 +436,8 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		GetParent()->Invalidate();
 	} else if (nChar == VK_F9 && m_cursor != 0xffff && m_aLinePC[m_cursor]>0) {
 		if (m_cursor<MAX_CODE_LINES) {
-			TogglePCBreakpoint(m_aLinePC[m_cursor]);
-			theApp.GetMainFrame()->BreakpointChanged();
+			uint32_t id = TogglePCBreakpoint(m_aLinePC[m_cursor]);
+			theApp.GetMainFrame()->BreakpointChanged(id);
 		}
 		Invalidate();
 	} else if (nChar == VK_F5) {
@@ -551,6 +553,7 @@ void CCodeView::OnLButtonDown(UINT nFlags, CPoint point)
 		} else {
 			m_cursor = uint16_t((point.y-CODE_BAR_HEIGHT) / m_lineHeight);
 			m_leftmouse = true;
+			m_selecting = false;
 		}
 		Invalidate();
 	}

@@ -11,6 +11,17 @@ typedef struct Regs {
 	Regs() : PC(0x1000), A(0), X(0), Y(0), P(0), S(0), T(0) {}
 } Regs;
 
+enum StatusFlags {
+	F_C = 1,
+	F_Z = 2,
+	F_I = 4,
+	F_D = 8,
+	F_B = 16,
+	F_U = 32,
+	F_V = 64,
+	F_N = 128,
+};
+
 enum AddressModes {
 	// address mode bit index
 
@@ -56,10 +67,14 @@ void CPUReset();
 void CPUIRQ();
 void CPUNMI();
 
-uint16_t GetPCBreakpoints(uint16_t **pBP);
-uint16_t GetPCBreakpoints(uint16_t **pBP, uint32_t **pID);
-void TogglePCBreakpoint(uint16_t addr);
+bool SetBPCondition(uint32_t id, const uint8_t *condition, uint16_t length);
+void ClearBPCondition(uint32_t id);
+uint16_t GetNumPCBreakpoints();
+uint16_t* GetPCBreakpoints();
+uint16_t GetPCBreakpointsID(uint16_t **pBP, uint32_t **pID, uint16_t &nDS);
+uint32_t TogglePCBreakpoint(uint16_t addr);
 void SetPCBreakpoint(uint16_t addr);
 void RemoveBreakpointByID(uint32_t id);
-bool GetBreakpointAddrByID(uint32_t id, uint16_t *addr);
+bool GetBreakpointAddrByID(uint32_t id, uint16_t &addr);
+bool EnableBPByID(uint32_t id, bool enable);
 
