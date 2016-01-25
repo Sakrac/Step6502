@@ -82,7 +82,11 @@ void CCodeAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 	if (nChar==VK_RETURN && m_Code) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
-		m_Code->currAddr = (uint16_t)wcstol(address, &end, 16);
+		uint16_t addr;
+		if (GetAddress(address, wcslen(address), addr))
+			m_Code->currAddr = addr;
+		else
+			m_Code->currAddr = (uint16_t)wcstol(address, &end, 16);
 		GetParent()->Invalidate();
 		return;
 	}
@@ -647,7 +651,7 @@ void CCodeView::OnButtonReverse()
 
 void CCodeView::OnButtonStep()
 {
-	CPUStop();
+	CPUStep();
 	Invalidate();
 }
 

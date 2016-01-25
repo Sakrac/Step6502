@@ -810,6 +810,8 @@ bool CPUStepBackInt(Regs &regs, uint32_t &stepCycles)
 bool CPUStepBack()
 {
 	return CPUStepBackInt(currRegs, cycles);
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->MachineUpdated();
 }
 
 void CPUGoThread();
@@ -825,16 +827,25 @@ void CPUStop()
 	while (1 != InterlockedExchange16((SHORT*)&bStopCPU, 1)) {}
 }
 
+void CPUStepInt()
+{
+	CPUAddUndoRegs(currRegs);
+	currRegs = Step6502(currRegs, Get6502Byte, Set6502ByteRecord);
+	if (currRegs.T != 0xff)
+		cycles += currRegs.T;
+
+}
+
 void CPUStep()
 {
 	// can not step while CPU is running
 	if (IsCPURunning())
 		return;
 
-	CPUAddUndoRegs(currRegs);
-	currRegs = Step6502(currRegs, Get6502Byte, Set6502ByteRecord);
-	if (currRegs.T != 0xff)
-		cycles += currRegs.T;
+	CPUStepInt();
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->MachineUpdated();
 }
 
 /*
@@ -862,10 +873,13 @@ void CPUStepOver()
 		uint8_t stack = currRegs.S;
 		uint32_t c = cycles;
 		do {
-			CPUStep();
+			CPUStepInt();
 		} while (currRegs.S < stack && (cycles-c)<(1<<20) && !CheckPCBreakpoint(currRegs.PC));
 	} else
-		CPUStep();
+		CPUStepInt();
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame())
+		pFrame->MachineUpdated();
 }
 
 void CPUGo()
@@ -884,8 +898,11 @@ void CPUGo()
 			return;
 		}
 	} while (!CheckPCBreakpoint(currRegs.PC));
-	if (CMainFrame *pFrame = theApp.GetMainFrame())
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->m_actionID++;
+		pFrame->MachineUpdated();
+	}
 }
 
 void CPUReverse()
@@ -903,8 +920,11 @@ void CPUReverse()
 			return;
 		}
 	} while (!CheckPCBreakpoint(currRegs.PC));
-	if (CMainFrame *pFrame = theApp.GetMainFrame())
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->m_actionID++;
+		pFrame->MachineUpdated();
+	}
 }
 
 static void *CPUGoThreadRun(void *param)
@@ -977,6 +997,7 @@ static void *CPUGoThreadRun(void *param)
 		pFrame->m_actionID++;
 		pFrame->FocusPC();
 		pFrame->InvalidateAll();
+		pFrame->MachineUpdated();
 	}
 
 	// the CPU thread is finished
@@ -1046,6 +1067,7 @@ static void *CPUReverseThreadRun(void *param)
 		pFrame->m_actionID++;
 		pFrame->FocusPC();
 		pFrame->InvalidateAll();
+		pFrame->MachineUpdated();
 	}
 
 	// the CPU thread is finished
@@ -1071,6 +1093,8 @@ void CPUReset()
 	if (!IsCPURunning()) {
 		CPUAddUndoRegs(currRegs);
 		currRegs = Reset6502(currRegs, Get6502Byte, Set6502ByteRecord);
+		if (CMainFrame *pFrame = theApp.GetMainFrame())
+			pFrame->MachineUpdated();
 	}
 }
 
@@ -1081,6 +1105,8 @@ void CPUIRQ()
 	} else {
 		CPUAddUndoRegs(currRegs);
 		currRegs = IRQ6502(currRegs, Get6502Byte, Set6502ByteRecord);
+		if (CMainFrame *pFrame = theApp.GetMainFrame())
+			pFrame->MachineUpdated();
 	}
 }
 
@@ -1091,6 +1117,8 @@ void CPUNMI()
 	} else {
 		CPUAddUndoRegs(currRegs);
 		currRegs = NMI6502(currRegs, Get6502Byte, Set6502ByteRecord);
+		if (CMainFrame *pFrame = theApp.GetMainFrame())
+			pFrame->MachineUpdated();
 	}
 }
 

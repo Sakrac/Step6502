@@ -20,6 +20,7 @@
 #define IDS_MEMORY2_NAME                130
 #define IDS_GRAPHIC_VIEW                131
 #define IDS_BREAKPOINTS                 132
+#define IDS_WATCH                       133
 #define ID_VIEW_OUTPUTWND               149
 #define IDS_OUTPUT_WND                  157
 #define IDI_OUTPUT_WND                  165
@@ -61,6 +62,9 @@
 #define ID_BREAKPOINTS                  229
 #define ID_BREAKPOINT_LIST              230
 #define ID_BREAKPOINT_EDIT              231
+#define ID_WATCH_VIEW                   232
+#define ID_WATCH_LIST                   233
+#define ID_WATCH_EDIT                   234
 #define IDS_BUILD_TAB                   300
 #define IDS_DEBUG_TAB                   301
 #define IDS_FIND_TAB                    302

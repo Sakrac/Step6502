@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <inttypes.h>
 #include "machine.h"
+#include "sym.h"
 
 // These are expression tokens in order of precedence (last is highest precedence)
 
@@ -48,6 +49,8 @@ enum ExpOp {
 	EO_EOR,				// ^
 	EO_SHL,				// <<
 	EO_SHR,				// >>
+	EO_SGN8,			// s8
+	EO_SGN16,			// s16
 	EO_NOT,				// !
 	EO_NEG,				// negate value
 	EO_ERR,				// Error
@@ -143,8 +146,15 @@ ExpOp ParseOp(ExpStr &str, uint32_t &v)
 				return v<0x100 ? EO_VAL8 : EO_VAL16;
 			}
 			if (IsAlphabetic(c)) {
-				if (!IsAlphaNumeric(*str)) {
-					switch (ToUp(c)) {
+				wchar_t C = ToUp(c);
+				if (C==L'S' && *str==L'8' && !IsAlphaNumeric(str[1])) {
+					++str;
+					return EO_SGN8;
+				} else if (C==L'S' && *str==L'1' && str[1]==L'6' && !IsAlphaNumeric(str[1])) {
+					str += 2;
+					return EO_SGN16;
+				} else if (!IsAlphaNumeric(*str)) {
+					switch (C) {
 						case L'A': return EO_A;
 						case L'X': return EO_X;
 						case L'Y': return EO_Y;
@@ -159,6 +169,21 @@ ExpOp ParseOp(ExpStr &str, uint32_t &v)
 				} else if ((c==L'P' || c==L'p') && (*str==L'C' || *str==L'c') && !IsAlphaNumeric(str[1])) {
 					++str;
 					return EO_PC;
+				}
+			}
+
+			if (IsAlphabetic(c) || c==L'.' || c==L'_') {
+				size_t lablen = 0;
+				const wchar_t *scan = str-1;
+				while (*scan && (*scan==L'.' || *scan==L'_' || IsAlphaNumeric(*scan))) {
+					lablen++;
+					scan++;
+				}
+				uint16_t addr;
+				if (GetAddress(str-1, lablen, addr)) {
+					v = addr;
+					str += lablen-1;
+					return EO_VAL16;
 				}
 			}
 			break;
@@ -236,8 +261,8 @@ int EvalExpression(const uint8_t *RPN)
 	while (!err && *RPN) {
 		uint8_t c = *RPN++;
 		switch (c) {
-			case EO_VAL8: values[i++] = *RPN++; break;	// fixed value: 32 bits?
-			case EO_VAL16: values[i++] = RPN[0] + (((int)RPN[1])<<8); RPN += 2; break;	// fixed value: 32 bits?
+			case EO_VAL8: values[i++] = *RPN++; break;	// fixed value: 8 bits
+			case EO_VAL16: values[i++] = RPN[0] + (((int)RPN[1])<<8); RPN += 2; break;	// fixed value: 16 bits
 			case EO_PC: values[i++] = r.PC; break;	// current PC
 			case EO_A: values[i++] = r.A; break; // accumulator
 			case EO_X: values[i++] = r.X; break; // x reg
@@ -361,6 +386,15 @@ int EvalExpression(const uint8_t *RPN)
 			case EO_NOT:
 				if (!(err = i<1))
 					values[i-1] = !values[i-1];
+				break;
+			case EO_SGN8:
+				if (!(err = i<1))
+					values[i-1] = (int)(int8_t)values[i-1];
+				break;
+			case EO_SGN16:
+				if (!(err = i<1))
+					values[i-1] = (int)(int16_t)values[i-1];
+				break;
 			default:
 				err = true;
 				break;

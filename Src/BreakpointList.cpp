@@ -161,9 +161,7 @@ void CBreakpointList::OnSize(UINT nType, int cx, int cy)
 	column.cx = rect.Width() - 96;
 
 	m_bp_listctrl.SetColumn(1, &column);// L"Column 1");
-
-
-	Invalidate(); //Add this  
+	Invalidate();
 }
 
 

@@ -380,6 +380,7 @@ BEGIN
     IDS_MEMORY2_NAME        "Memory 2"
     IDS_GRAPHIC_VIEW        "Graphics"
     IDS_BREAKPOINTS         "Breakpoints"
+    IDS_WATCH               "Watch"
 END
 
 STRINGTABLE

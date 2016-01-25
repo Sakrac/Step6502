@@ -184,6 +184,8 @@ void CRegisterPane::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 					m_cursor_x++;
 				Invalidate();
 			}
+			if (CMainFrame *pFrame = theApp.GetMainFrame())
+				pFrame->MachineUpdated();
 		} else if (n==0 || n==1) {
 			uint8_t bit = 24-m_cursor_x;
 			r.P &= ~(1<<bit);
@@ -191,6 +193,8 @@ void CRegisterPane::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 			if (m_cursor_x<24)
 				m_cursor_x++;
 			Invalidate();
+			if (CMainFrame *pFrame = theApp.GetMainFrame())
+				pFrame->MachineUpdated();
 		}
 	}
 	CDockablePane::OnKeyDown(nChar, nRepCnt, nFlags);

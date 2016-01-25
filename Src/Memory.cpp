@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include "Step6502.h"
 #include "Memory.h"
+#include "Sym.h"
 #include "machine.h"
 
 
@@ -86,7 +87,11 @@ void CMemoryAddress::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 	if (nChar==VK_RETURN && m_memory) {
 		wchar_t address[64], *end;
 		GetWindowText(address, sizeof(address)/sizeof(address[0]));
-		m_memory->currAddr = (uint16_t)wcstol(address, &end, 16);
+		uint16_t addr;
+		if (GetAddress(address, wcslen(address), addr))
+			m_memory->currAddr = addr;
+		else
+			m_memory->currAddr = (uint16_t)wcstol(address, &end, 16);
 		GetParent()->Invalidate();
 		return;
 	}

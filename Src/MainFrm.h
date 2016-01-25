@@ -10,6 +10,7 @@
 #include "LoadAddress.h"
 #include "GraphicView.h"
 #include "BreakpointList.h"
+#include "WatchView.h"
 
 // CMainToolBar
 
@@ -73,7 +74,7 @@ public:
 	void FocusAddr(uint16_t addr) { m_code.FocusAddr(addr); }
 	void TryLoadBinary(const wchar_t *name);
 	void BreakpointChanged(uint32_t id=~0UL) { m_breakpoints.Rebuild(id); }
-
+	void MachineUpdated();
 	CFont &Font() { return m_font; }
 
 	int				  m_actionID;	// action ID increments when stepping or running
@@ -92,6 +93,7 @@ protected:  // control bar embedded members
 	CLoadAddress      m_loadAddressDialog;
 	CGraphicView      m_graphicView;
 	CBreakpointList   m_breakpoints;
+	CWatchView        m_watch;
 
 	int               m_currFontSize;
 	CFont             m_font;

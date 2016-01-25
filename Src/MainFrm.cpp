@@ -193,6 +193,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_breakpoints.EnableDocking(CBRS_ALIGN_ANY);
 	DockPane(&m_breakpoints);
 
+	m_watch.EnableDocking(CBRS_ALIGN_ANY);
+	DockPane(&m_watch);
+
 	// set the visual manager and style based on persisted value
 	OnApplicationLook(theApp.m_nAppLook);
 
@@ -332,6 +335,14 @@ BOOL CMainFrame::CreateDockingWindows()
 	ASSERT(bNameValid);
 	if (!m_breakpoints.Create(strBreakptsWnd, this, CRect(0, 0, 640, 480), TRUE, ID_BREAKPOINTS, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
 		TRACE0("Failed to create Breakpoints window\n");
+		return FALSE; // failed to create
+	}
+
+	CString strWatchWnd;
+	bNameValid = strWatchWnd.LoadString(IDS_WATCH);
+	ASSERT(bNameValid);
+	if (!m_watch.Create(strWatchWnd, this, CRect(0, 0, 640, 480), TRUE, ID_WATCH_VIEW, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
+		TRACE0("Failed to create Watch window\n");
 		return FALSE; // failed to create
 	}
 
@@ -557,6 +568,12 @@ void CMainFrame::OnButtonReverse()
 	// TODO: Add your command handler code here
 	CPUReverse();
 	InvalidateAll();
+}
+
+void CMainFrame::MachineUpdated()
+{
+	m_watch.EvaluateAll();
+	m_watch.Invalidate();
 }
 
 void CMainToolBar::EnableToolbarButton(int id, bool enable)

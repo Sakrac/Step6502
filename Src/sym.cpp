@@ -46,6 +46,19 @@ const wchar_t* GetSymbol(uint16_t address)
 	return nullptr;
 }
 
+// this is not fast but it is only called when a new string is entered, not every time evaluated
+bool GetAddress(const wchar_t *name, size_t chars, uint16_t &addr)
+{
+	for (uint16_t i = 0; i<nSymbols; i++) {
+		if (wcsncmp(((const wchar_t**)&pSymbols[nSymbols])[i], name, chars)==0) {
+			addr = pSymbols[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+
 void ReadSymbols(const wchar_t *binname)
 {
 	size_t end = wcslen(binname);
@@ -97,8 +110,13 @@ void ReadSymbols(const wchar_t *binname)
 						if (sscanf_s(buf, "break $%x", &addr)==1) {
 							if (pass)
 								SetPCBreakpoint(addr);
-						} else
+						} else {
 							label_found = sscanf_s(buf, "al $%x %s", &addr, labelName, (int)_countof(labelName)) == 2;
+							if (!label_found)
+								label_found = sscanf_s(buf, "al C:$%x %s", &addr, labelName, (int)_countof(labelName)) == 2;
+							if (!label_found)
+								label_found = sscanf_s(buf, "al C:%x %s", &addr, labelName, (int)_countof(labelName)) == 2;
+						}
 					}
 
 					if (label_found) {

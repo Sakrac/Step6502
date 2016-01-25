@@ -130,11 +130,27 @@ Full expressions are supported for conditional breakpoints. The following operat
 * **\<\<**: shift Left
 * **\>\>**: shift right
 * **!**: not
+* **S8**: sign extend an 8 bit value
+* **S16**: sign extend a 16 bit value
+* Symbol names are interpreted as the imported value
 
 Examples:
 
 * Carry not set: !c
 * result of "lda ($a0),y" is greater than 0: [{$a0} + y] > 0
+
+###Watch View
+
+Double click on a row in the Watch View to edit the expression of that line. The expression is the same format as for Breakpoint View above with a couple of additions:
+
+* Prefixed by '*' the value will display bytes at the address that was evaluated from the expression
+* Prefixed by 'dis' the value will display disassembly at the address that was evaluate from the expression.
+
+Examples:
+
+* Show disassembly for where next address will be if current instruciton is a branch: dis PC + 2 + s8 [PC+1]
+* Show disassembly for next instruction if a jmp/jsr: dis {PC+1}
+* Show return address for rts: {$101+S} + 1
 
 ###Graphic View
 
@@ -187,3 +203,5 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 ##Fixes
 
 * Added Breakpoint View, Added copy to clipboard, Accept "Cancel" to be selected in dialogs.
+* Added conditional breakpoints with full expressions
+* Added watch pane
