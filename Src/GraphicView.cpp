@@ -5,7 +5,7 @@
 #include "Step6502.h"
 #include "GraphicView.h"
 #include "machine.h"
-
+#include "boot_ram.h"
 
 // CGraphicField
 
@@ -120,6 +120,14 @@ BEGIN_MESSAGE_MAP(CGraphicView, CDockablePane)
 	ON_COMMAND(ID_EDIT_COPY, &CGraphicView::OnEditCopy)
 END_MESSAGE_MAP()
 
+void CGraphicView::SetLayout(GraphicLayout layout) {
+	if (layout == GL_APL2TXT && memcmp(Get6502Mem(0x400), _aStartupScreen, 908) == 0)
+		memcpy(Get6502Mem(0x400), _aStartupScreenFruit, 908);
+	else if (layout == GL_TEXTMODE && memcmp(Get6502Mem(0x400), _aStartupScreenFruit, 908) == 0)
+		memcpy(Get6502Mem(0x400), _aStartupScreen, 908);
+	m_layout = layout;
+	m_editFontAddr.ShowWindow(layout == GL_TEXTMODE ? SW_SHOW : SW_HIDE);
+}
 
 // CGraphicView message handlers
 
@@ -166,6 +174,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		pAddrItem->SetWindowText(L"f000");
 	m_columns.AddString(L"Lines");
 	m_columns.AddString(L"Columns");
+	m_columns.AddString(L"Apple2Text");
 	m_columns.AddString(L"8X8,");
 	m_columns.AddString(L"Sprites");
 	m_columns.AddString(L"Text");
@@ -181,10 +190,11 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 {
 	char bmimem[sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256];
+	int cw = m_layout == GL_APL2TXT ? 7 : 8;
 	BITMAPINFO *bmi = (BITMAPINFO*)bmimem;
 	BITMAPINFOHEADER &bih = bmi->bmiHeader;
 	bih.biSize = sizeof(BITMAPINFOHEADER);
-	bih.biWidth = m_bytesWide * 8;
+	bih.biWidth = m_bytesWide * cw;
 	bih.biHeight = -((m_linesHigh+7) & (~7L));
 	bih.biPlanes = 1;
 	bih.biBitCount = 8;
@@ -204,11 +214,17 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 	bmi->bmiColors[2].rgbBlue = 255;
 	bmi->bmiColors[2].rgbGreen = 136;
 	bmi->bmiColors[2].rgbRed = 64;
+	bmi->bmiColors[3].rgbBlue = 0;
+	bmi->bmiColors[3].rgbGreen = 0;
+	bmi->bmiColors[3].rgbRed = 0;
+	bmi->bmiColors[4].rgbBlue = 255;
+	bmi->bmiColors[4].rgbGreen = 255;
+	bmi->bmiColors[4].rgbRed = 255;
 
 	void *Pixels = NULL;
 	HBITMAP hbmp = CreateDIBSection(hdc, bmi, DIB_RGB_COLORS, &Pixels, NULL, 0);
 	uint8_t *d = (uint8_t*)Pixels;
-	uint32_t w = m_bytesWide * 8;
+	uint32_t w = m_bytesWide * cw;
 
 	switch (m_layout) {
 		case GL_BITPLANE: {
@@ -230,12 +246,30 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 			uint16_t a = m_address;
 			for (int x = 0; x<m_bytesWide; x++) {
 				for (int y = 0; y<m_linesHigh; y++) {
-					int xp = x*8;
+					int xp = x*cw;
 					uint8_t b = Get6502Byte(a++);
 					uint8_t m = 0x80;
-					for (int bit = 0; bit<8; bit++) {
+					for (int bit = 0; bit<cw; bit++) {
 						d[(y)*w + (xp++)] = (b&m) ? 2 : 1;
 						m >>= 1;
+					}
+				}
+			}
+			break;
+		}
+		case GL_APL2TXT: {
+			for (int y = 0; y<(m_linesHigh>>3); y++) {
+				uint16_t a = (y&7)*128 + (y>>3)*40 + m_address;
+				for (int x = 0; x<m_bytesWide; x++) {
+					uint8_t chr = y>=24 ? 0 : Get6502Byte(a++);
+					uint8_t *cs = _fruitFont + 8*chr;
+					for (int h = 0; h<8; h++) {
+						uint8_t b = *cs++;
+						uint8_t m = 0x80;
+						for (int bit = 0; bit<8; bit++) {
+							d[(y*8+h)*w + (x*cw+bit)] = (b&m) ? 4 : 3;
+							m >>= 1;
+						}
 					}
 				}
 			}

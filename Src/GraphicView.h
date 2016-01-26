@@ -60,6 +60,7 @@ public:
 	enum GraphicLayout {
 		GL_BITPLANE,
 		GL_COLUMNS,
+		GL_APL2TXT,
 		GL_8X8,
 		GL_SPRITES,
 		GL_TEXTMODE
@@ -68,8 +69,7 @@ public:
 	CGraphicView();
 	virtual ~CGraphicView();
 
-	void SetLayout(GraphicLayout layout) { m_layout = layout;
-		m_editFontAddr.ShowWindow(layout == GL_TEXTMODE ? SW_SHOW : SW_HIDE); }
+	void SetLayout(GraphicLayout layout);
 
 	void SetField(int value, CGraphicField::FieldType type) {
 		switch (type) {

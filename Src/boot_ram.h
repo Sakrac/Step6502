@@ -8,3 +8,9 @@ struct block6502 {
 };
 
 int GetBlocks6502(struct block6502 **ppBlocks);
+
+extern unsigned char _fruitFont[];
+extern unsigned char _aStartupScreen[];
+extern char _aStartupScreenFruit[];
+
+

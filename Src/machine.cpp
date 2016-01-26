@@ -809,9 +809,10 @@ bool CPUStepBackInt(Regs &regs, uint32_t &stepCycles)
 
 bool CPUStepBack()
 {
-	return CPUStepBackInt(currRegs, cycles);
+	bool ret = CPUStepBackInt(currRegs, cycles);
 	if (CMainFrame *pFrame = theApp.GetMainFrame())
 		pFrame->MachineUpdated();
+	return ret;
 }
 
 void CPUGoThread();

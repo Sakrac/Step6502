@@ -154,9 +154,9 @@ Examples:
 
 ###Graphic View
 
-There are five different display modes, currently based on common C64 graphics modes. For text mode a font is included at address $f000.
+There are six different display modes, including Apple II 40 column text mode and common C64 graphics modes. For c64 text mode a font is included at address $f000.
 
-The width of the graphic view is in bytes, or sets of 8 to represent the memory layout.
+The width of the graphic view is in bytes, or sets of 8 to represent the memory layout. Apple II for some reason have 7 pixels wide text so the screen width is 280 pixels for 40 columns.
 
 By default the Graphic View scales the image to the available space, double click on the image to set fixed scales (fit -> 1x -> 2x -> 4x -> fit)
 
@@ -205,3 +205,4 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 * Added Breakpoint View, Added copy to clipboard, Accept "Cancel" to be selected in dialogs.
 * Added conditional breakpoints with full expressions
 * Added watch pane
+* Added Apple 2 40 column text mode to graphic view, fixed step backwards not updating watch pane.
