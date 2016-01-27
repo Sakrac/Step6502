@@ -439,6 +439,7 @@ void CWatchView::SetWatch(int index, const wchar_t *expression)
 			m_rpn[index].pRPN = (uint8_t*)malloc(len);
 			m_rpn[index].length = len;
 		}
+		m_rpn[index].type = type;
 		if (len)
 			memcpy(m_rpn[index].pRPN, rpn, len);
 	} else {

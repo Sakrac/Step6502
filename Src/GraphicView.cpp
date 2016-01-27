@@ -160,7 +160,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	if (CWnd *pAddrItem = GetDlgItem(ID_GRAPHIC_HEIGHT_FIELD))
 		pAddrItem->SetWindowText(L"200");
-	CRect colRect(280, 0, 380, 128);
+	CRect colRect(280, 0, 380, 256);
 	if (!m_columns.Create(CBS_DROPDOWNLIST | WS_VISIBLE | WS_TABSTOP | WS_VSCROLL, colRect, this, ID_GRAPHIC_STYLE_FIELD)) {
 		TRACE0("Failed to create column field\n");
 		return FALSE; // failed to create
@@ -172,12 +172,13 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	if (CWnd *pAddrItem = GetDlgItem(ID_GRAPHIC_FONT_FIELD))
 		pAddrItem->SetWindowText(L"f000");
-	m_columns.AddString(L"Lines");
+	m_columns.AddString(L"Planar");
 	m_columns.AddString(L"Columns");
-	m_columns.AddString(L"Apple2Text");
+	m_columns.AddString(L"Apl2 Text");
 	m_columns.AddString(L"8X8,");
-	m_columns.AddString(L"Sprites");
-	m_columns.AddString(L"Text");
+	m_columns.AddString(L"c64 Sprites");
+	m_columns.AddString(L"c64 Text");
+	m_columns.AddString(L"Apl2 Hires");
 	m_columns.SetCurSel(GL_TEXTMODE);
 	m_columns.SetGraphicView(this);
 	m_editAddress.SetGraphicView(this, CGraphicField::FieldType::ADDRESS);
@@ -190,7 +191,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 {
 	char bmimem[sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256];
-	int cw = m_layout == GL_APL2TXT ? 7 : 8;
+	int cw = (m_layout == GL_APL2TXT || m_layout == GL_APL2HIRS) ? 7 : 8;
 	BITMAPINFO *bmi = (BITMAPINFO*)bmimem;
 	BITMAPINFOHEADER &bih = bmi->bmiHeader;
 	bih.biSize = sizeof(BITMAPINFOHEADER);
@@ -327,6 +328,22 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 						}
 					}
 					++a;
+				}
+			}
+			break;
+		}
+		case GL_APL2HIRS: {
+			int sy = m_linesHigh>(8*24) ? (8*24) : m_linesHigh;
+			int sx = m_bytesWide < 40 ? m_bytesWide : 40;
+			for (int y = 0; y<sy; y++) {
+				uint16_t a = m_address + (y&7)*0x400 + ((y>>3)&7)*128 + (y>>6)*40;
+				for (int x = 0; x<sx; x++) {
+					uint8_t b = Get6502Byte(a++);
+					uint8_t m = 0x40;
+					for (int bit = 0; bit<7; bit++) {
+						d[x*7+bit + y*w] = b&m ? 4 : 3;
+						m >>= 1;
+					}
 				}
 			}
 			break;

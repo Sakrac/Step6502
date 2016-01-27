@@ -63,7 +63,8 @@ public:
 		GL_APL2TXT,
 		GL_8X8,
 		GL_SPRITES,
-		GL_TEXTMODE
+		GL_TEXTMODE,
+		GL_APL2HIRS,
 	};
 
 	CGraphicView();

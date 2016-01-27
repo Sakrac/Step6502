@@ -551,7 +551,6 @@ void CMainFrame::OnButtonStepBack()
 {
 	// TODO: Add your command handler code here
 	CPUStepBack();
-	InvalidateAll();
 }
 
 
@@ -559,7 +558,6 @@ void CMainFrame::OnButtonStep()
 {
 	// TODO: Add your command handler code here
 	CPUStep();
-	InvalidateAll();
 }
 
 
@@ -567,13 +565,13 @@ void CMainFrame::OnButtonReverse()
 {
 	// TODO: Add your command handler code here
 	CPUReverse();
-	InvalidateAll();
 }
 
 void CMainFrame::MachineUpdated()
 {
 	m_watch.EvaluateAll();
 	m_watch.Invalidate();
+	InvalidateAll();
 }
 
 void CMainToolBar::EnableToolbarButton(int id, bool enable)

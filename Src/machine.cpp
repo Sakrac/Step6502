@@ -997,7 +997,6 @@ static void *CPUGoThreadRun(void *param)
 	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->m_actionID++;
 		pFrame->FocusPC();
-		pFrame->InvalidateAll();
 		pFrame->MachineUpdated();
 	}
 
@@ -1067,7 +1066,6 @@ static void *CPUReverseThreadRun(void *param)
 	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->m_actionID++;
 		pFrame->FocusPC();
-		pFrame->InvalidateAll();
 		pFrame->MachineUpdated();
 	}
 
