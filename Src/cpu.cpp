@@ -459,7 +459,7 @@ uint16_t cpu::GetArg(AddressModes mode) {
 		case AM_REL:
 			l = GetByte(r.PC++);
 			h = GetByte(r.PC++);
-			return GetByte((h << 8) | l) + (GetByte((h << 8) | ((l+1)&0xff)));
+			return GetByte((h << 8) | l) + (GetByte((h << 8) | ((l+1)&0xff))<<8);
 
 		case AM_ZP_X:
 			return (GetByte(r.PC++) + r.X) & 0xff;

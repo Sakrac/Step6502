@@ -154,7 +154,7 @@ Examples:
 
 ###Graphic View
 
-There are seven different display modes, including Apple II 40 column text mode, hires and common C64 graphics modes. For c64 text mode a font is included at address $f000.
+There are eight different display modes, including Apple II 40 column text mode, hires b/w & color, and common C64 graphics modes. For c64 text mode a font is included at address $f000.
 
 The width of the graphic view is in bytes, or sets of 8 to represent the memory layout. Apple II for some reason have 7 pixels wide text so the screen width is 280 pixels for 40 columns.
 
@@ -207,3 +207,5 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 * Added watch pane
 * Added Apple 2 40 column text mode to graphic view, fixed step backwards not updating watch pane.
 * Added Apple 2 hires mode to graphic view, I think. Added some code hooked up to NMI to test it.
+* Added Apple 2 hires color to graphic view, if the mystics of the Apple 2 hires color framebuffer is what I think it is.
+* Fixed bug in indirect addressing in jmp (addr)

@@ -65,6 +65,7 @@ public:
 		GL_SPRITES,
 		GL_TEXTMODE,
 		GL_APL2HIRS,
+		GL_APL2HRCOL,
 	};
 
 	CGraphicView();

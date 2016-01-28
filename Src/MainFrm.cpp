@@ -690,6 +690,7 @@ void CMainFrame::LoadBinary(CString &file, int filetype, int address, int setPC,
 		fread(trg, read, 1, f);
 		fclose(f);
 
+		GetRegs().T = 0;
 		if (setPC) {
 			GetRegs().PC = address;
 			FocusPC();

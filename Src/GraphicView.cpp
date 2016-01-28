@@ -179,6 +179,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_columns.AddString(L"c64 Sprites");
 	m_columns.AddString(L"c64 Text");
 	m_columns.AddString(L"Apl2 Hires");
+	m_columns.AddString(L"Apl2 HR Col");
 	m_columns.SetCurSel(GL_TEXTMODE);
 	m_columns.SetGraphicView(this);
 	m_editAddress.SetGraphicView(this, CGraphicField::FieldType::ADDRESS);
@@ -188,10 +189,25 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	return 0;
 }
 
+static const char a2c_lookup[] = {
+	0, 0, 0, 0, 3, 2, 3, 3,
+	0, 0, 1, 1, 3, 3, 3, 3,
+	0, 0, 0, 0, 2, 2, 3, 3,
+	0, 0, 1, 0, 3, 3, 3, 3,
+	0, 0, 0, 0, 3, 1, 3, 3,
+	0, 0, 0, 0, 1, 1, 3, 3,
+	0, 0, 2, 2, 3, 3, 3, 3,
+	0, 0, 2, 0, 3, 3, 3, 3,
+};
+
+static const char a2c_colors[] = {
+	3, 5, 6, 4, 3, 7, 8, 4
+};
+
 HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 {
 	char bmimem[sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * 256];
-	int cw = (m_layout == GL_APL2TXT || m_layout == GL_APL2HIRS) ? 7 : 8;
+	int cw = (m_layout == GL_APL2TXT || m_layout == GL_APL2HIRS || m_layout == GL_APL2HRCOL) ? 7 : 8;
 	BITMAPINFO *bmi = (BITMAPINFO*)bmimem;
 	BITMAPINFOHEADER &bih = bmi->bmiHeader;
 	bih.biSize = sizeof(BITMAPINFOHEADER);
@@ -209,18 +225,15 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 		bmi->bmiColors[I].rgbBlue = bmi->bmiColors[I].rgbGreen = bmi->bmiColors[I].rgbRed = (BYTE)I;
 		bmi->bmiColors[I].rgbReserved = 0;
 	}
-	bmi->bmiColors[1].rgbBlue = 170;
-	bmi->bmiColors[1].rgbGreen = 32;
-	bmi->bmiColors[1].rgbRed = 32;
-	bmi->bmiColors[2].rgbBlue = 255;
-	bmi->bmiColors[2].rgbGreen = 136;
-	bmi->bmiColors[2].rgbRed = 64;
-	bmi->bmiColors[3].rgbBlue = 0;
-	bmi->bmiColors[3].rgbGreen = 0;
-	bmi->bmiColors[3].rgbRed = 0;
-	bmi->bmiColors[4].rgbBlue = 255;
-	bmi->bmiColors[4].rgbGreen = 255;
-	bmi->bmiColors[4].rgbRed = 255;
+
+	bmi->bmiColors[1] = { 170, 32, 32, 0 };
+	bmi->bmiColors[2] = { 255, 136, 64, 0 };
+	bmi->bmiColors[3] = { 0, 0, 0, 0 };
+	bmi->bmiColors[4] = { 255, 255, 255, 0 };
+	bmi->bmiColors[5] = { 0x2b, 0xc0, 0, 0 };
+	bmi->bmiColors[6] = { 0xf9, 0, 0xa8, 0 };
+	bmi->bmiColors[7] = { 0x1e, 0x52, 0xf3, 0 };
+	bmi->bmiColors[8] = { 0xfa, 0x78, 0x28, 0 };
 
 	void *Pixels = NULL;
 	HBITMAP hbmp = CreateDIBSection(hdc, bmi, DIB_RGB_COLORS, &Pixels, NULL, 0);
@@ -337,13 +350,42 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 			int sx = m_bytesWide < 40 ? m_bytesWide : 40;
 			for (int y = 0; y<sy; y++) {
 				uint16_t a = m_address + (y&7)*0x400 + ((y>>3)&7)*128 + (y>>6)*40;
+				uint8_t *dl = d + y*w;
 				for (int x = 0; x<sx; x++) {
 					uint8_t b = Get6502Byte(a++);
 					uint8_t m = 0x40;
 					for (int bit = 0; bit<7; bit++) {
-						d[x*7+bit + y*w] = b&m ? 4 : 3;
+						*dl++ = b&m ? 4 : 3;
 						m >>= 1;
 					}
+				}
+			}
+			break;
+		}
+		case GL_APL2HRCOL: {
+			int sx = m_bytesWide < 40 ? m_bytesWide : 40;
+			int sy = m_linesHigh>(8*24) ? (8*24) : m_linesHigh;
+			int sw = sx * 7;
+			uint8_t pBits[40*7+2] = { 0 };
+			uint8_t pCol[40*7] = { 0 };
+			for (int y = 0; y<sy; y++) {
+				uint16_t a = m_address + (y&7)*0x400 + ((y>>3)&7)*128 + (y>>6)*40;
+				uint16_t i = 0;
+				for (int x = 0; x<sx; x++) {
+					uint8_t b = Get6502Byte(a++);
+					uint8_t m = 0x40;
+					for (int bit = 0; bit<7; bit++) {
+						pCol[i] = !!(b&0x80);
+						pBits[i++] = !!(b&m);
+						m >>= 1;
+					}
+				}
+				uint8_t c = 0;
+				uint8_t *dl = d + y*w;
+				for (int x = 0; x<sw; x++) {
+					uint8_t i = ((x&1)<<5) | (pBits[x]<<2) | (pBits[x+1]<<1) | pBits[x+2];
+					c = a2c_lookup[i | (c<<3)];
+					*dl++ = a2c_colors[c + (pCol[x]<<2)];
 				}
 			}
 			break;
@@ -394,7 +436,8 @@ void CGraphicView::OnPaint()
 		CBitmap *pPrevBmp = otherDC.SelectObject(CBitmap::FromHandle(currBitmap));
 		int dw = rect.Width();
 		int dh = rect.Height() - EDIT_BAR_HEIGHT;
-		int sw = m_bytesWide * 8;
+		int cw = (m_layout == GL_APL2TXT || m_layout == GL_APL2HIRS || m_layout == GL_APL2HRCOL) ? 7 : 8;
+		int sw = m_bytesWide * cw;
 		int sh = m_linesHigh;
 
 		if (!m_zoom) {
@@ -504,7 +547,8 @@ void CGraphicView::OnEditCopy()
 			CClientDC cdc(this);
 			CDC dc;
 			dc.CreateCompatibleDC(&cdc);
-			int sw = m_bytesWide * 8;
+			int cw = (m_layout == GL_APL2TXT || m_layout == GL_APL2HIRS || m_layout == GL_APL2HRCOL) ? 7 : 8;
+			int sw = m_bytesWide * cw;
 			int sh = m_linesHigh;
 			junk->CreateCompatibleBitmap(&cdc, sw, sh);
 			dc.SelectObject(junk);
