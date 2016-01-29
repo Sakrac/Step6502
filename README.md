@@ -164,6 +164,12 @@ If the image is larger than the pane it can be moved by dragging with the left m
 
 Copying after clicking in the graphic view will copy the bitmap to the clipboard.
 
+![Apple II Hires view](media/AppleII_Hires.png)
+*Apple II Hires example*
+
+![Apple II Hires Color view](media/AppleII_Hires_Color.png)
+*Apple II Hires Color example*
+
 ###Loading a binary file
 
 When loading a binary executable or drag & dropping one into the code view a "Load Address" dialog box will ask how to load it.
@@ -209,3 +215,4 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 * Added Apple 2 hires mode to graphic view, I think. Added some code hooked up to NMI to test it.
 * Added Apple 2 hires color to graphic view, if the mystics of the Apple 2 hires color framebuffer is what I think it is.
 * Fixed bug in indirect addressing in jmp (addr)
+* Fixed hires color issue (single white pixel should be single color pixel)
