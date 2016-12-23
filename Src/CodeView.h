@@ -31,13 +31,6 @@ class CAsmEdit : public CEdit
 	DECLARE_DYNAMIC(CAsmEdit)
 
 public:
-	enum FieldType {
-		ADDRESS,
-		WIDTH,
-		HEIGHT,
-		FONT
-	};
-
 	CAsmEdit();
 	virtual ~CAsmEdit();
 

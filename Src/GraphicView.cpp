@@ -126,7 +126,7 @@ void CGraphicView::SetLayout(GraphicLayout layout) {
 	else if (layout == GL_TEXTMODE && memcmp(Get6502Mem(0x400), _aStartupScreenFruit, 908) == 0)
 		memcpy(Get6502Mem(0x400), _aStartupScreen, 908);
 	m_layout = layout;
-	m_editFontAddr.ShowWindow(layout == GL_TEXTMODE ? SW_SHOW : SW_HIDE);
+	m_editFontAddr.ShowWindow((layout == GL_TEXTMODE || layout == GL_C64MCBM) ? SW_SHOW : SW_HIDE);
 }
 
 // CGraphicView message handlers
@@ -178,6 +178,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_columns.AddString(L"8X8,");
 	m_columns.AddString(L"c64 Sprites");
 	m_columns.AddString(L"c64 Text");
+	m_columns.AddString(L"c64 MCBM");
 	m_columns.AddString(L"Apl2 Hires");
 	m_columns.AddString(L"Apl2 HR Col");
 	m_columns.SetCurSel(GL_TEXTMODE);
@@ -234,6 +235,26 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 	bmi->bmiColors[6] = { 0xf9, 0, 0xa8, 0 };
 	bmi->bmiColors[7] = { 0x1e, 0x52, 0xf3, 0 };
 	bmi->bmiColors[8] = { 0xfa, 0x78, 0x28, 0 };
+
+	bmi->bmiColors[ 16 ] = { 0, 0, 0, 0 };	// #000000
+	bmi->bmiColors[ 17 ] = { 255, 255, 255, 0 };	// #FFFFFF
+	bmi->bmiColors[ 18 ] = { 54, 64, 137, 0 };	// #880000
+	bmi->bmiColors[ 19 ] = { 199, 191, 122, 0 };	// #AAFFEE
+	bmi->bmiColors[ 20 ] = { 174, 70, 138, 0 };	// #CC44CC
+	bmi->bmiColors[ 21 ] = { 65, 168, 104, 0 };	// #00CC55
+	bmi->bmiColors[ 22 ] = { 162, 49, 62, 0 };	// #0000AA
+	bmi->bmiColors[ 23 ] = { 113, 220, 208, 0 };	// #EEEE77
+	bmi->bmiColors[ 24 ] = { 37, 95, 144, 0 };	// #DD8855
+	bmi->bmiColors[ 25 ] = { 0, 71, 92, 0 };	// #664400
+	bmi->bmiColors[ 26 ] = { 109, 119, 187, 0 };	// #FF7777
+	bmi->bmiColors[ 27 ] = { 51, 51, 51, 0 };	// #333333
+	bmi->bmiColors[ 28 ] = { 128, 128, 128, 0 };	// #777777
+	bmi->bmiColors[ 29 ] = { 136, 234, 172, 0 };	// #AAFF66
+	bmi->bmiColors[ 30 ] = { 218, 112, 128, 0 };	// #0088FF
+	bmi->bmiColors[ 31 ] = { 171, 171, 171, 0 };	// #BBBBBB
+
+
+
 
 	void *Pixels = NULL;
 	HBITMAP hbmp = CreateDIBSection(hdc, bmi, DIB_RGB_COLORS, &Pixels, NULL, 0);
@@ -320,6 +341,39 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 						}
 					}
 				}
+			}
+			break;
+		}
+		case GL_C64MCBM:
+		{
+			uint16_t s = m_fontAddress; // current screen address
+			uint16_t f = 0xd800;	// hardwired color buffer
+			uint16_t a = m_address; // current data address
+			uint8_t k = Get6502Byte( 0xd021 ) & 15;
+			for (int y = 0; y<(m_linesHigh>>3); y++) {
+				for (int x = 0; x<m_bytesWide; x++) {
+					uint8_t sc = Get6502Byte( s++ );
+					uint8_t fc = Get6502Byte( f++ );
+					for (int h = 0; h<8; h++) {
+						uint8_t b = Get6502Byte(a++);
+						for( int p = 3; p >= 0; p-- )
+						{
+							uint8_t c;
+							switch( ( b >> ( p << 1 ) ) & 3 )
+							{
+								case 0: c = k + 16; break;
+								case 1: c = ( sc >> 4 ) + 16; break;
+								case 2: c = ( sc & 15 ) + 16; break;
+								case 3: c = ( fc & 15 ) + 16; break;
+							}
+							*d++ = c;
+							*d++ = c;
+						}
+						d += w - 8;
+					}
+					d -= w * 8 - 8;
+				}
+				d += w * 7;
 			}
 			break;
 		}

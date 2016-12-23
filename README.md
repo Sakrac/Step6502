@@ -208,6 +208,7 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 
 ##Fixes
 
+* Added C64 Multicolor Bitmap mode to graphic view, using color ram at $d800, background color from $d021 and the screen data is the second pointer edit control in the graphic view.
 * Added Breakpoint View, Added copy to clipboard, Accept "Cancel" to be selected in dialogs.
 * Added conditional breakpoints with full expressions
 * Added watch pane
