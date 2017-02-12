@@ -29,14 +29,43 @@ public:
 
 	bool activeConnection;
 	bool closeRequest;
+	bool viceRunning;
+	bool monitorOn;
 };
 
 static ViceConnect sVice;
 
+static const char* sViceRunning = "\n<VICE started>\n";
+static const char* sViceStopped = "<VICE stopped>\n";
+static const char* sViceConnected = "<VICE connected>\n";
+static const char* sViceDisconnected = "<VICE disconnected>\n";
+static const char* sViceLost = "<VICE connection lost>\n";
+static const char* sViceRun = "x\n";
+
+void ViceSend(const char *string, int length)
+{
+	if (sVice.activeConnection) {
+		send(sVice.s, string, length, NULL);
+		if (length&&(string[0]=='x'||string[0]=='X'||string[0]=='g'||string[0]=='G')) {
+			sVice.viceRunning = true;
+			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+				pFrame->VicePrint(sViceRunning, (int)strlen(sViceRunning));
+			}
+		}
+	}
+}
+
 bool ViceAction()
 {
 	if (sVice.activeConnection) {
+		if (sVice.monitorOn) {
+			ViceSend(sViceRun, (int)strlen(sViceRun));
+			return true;
+		}
 		sVice.close();
+		if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+			pFrame->VicePrint(sViceDisconnected, (int)strlen(sViceDisconnected));
+		}
 		return false;
 	}
 	return sVice.connect();
@@ -49,13 +78,6 @@ void ViceConnectShutdown()
 	}
 }
 
-void ViceSend(const char *string, int length)
-{
-	if (sVice.activeConnection) {
-		send(sVice.s, string, length, NULL);
-	}
-}
-
 unsigned long WINAPI ViceConnectThread(void* data)
 {
 	((ViceConnect*)data)->connectionThread();
@@ -64,6 +86,7 @@ unsigned long WINAPI ViceConnectThread(void* data)
 
 bool ViceConnect::connect()
 {
+	monitorOn = false;
 	closeRequest = false;
 	activeConnection = false;
 	if (openConnection("127.0.0.1", 6510)) {
@@ -225,12 +248,23 @@ void ViceConnect::connectionThread()
 	int offs = 0;
 
 	ViceUpdate state = Vice_None;
+	viceRunning = false;
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+		pFrame->VicePrint(sViceConnected, (int)strlen(sViceConnected));
+	}
 
 	while(activeConnection) {
 		if (closeRequest) {
 			threadHandle = INVALID_HANDLE_VALUE;
 			close();
 			break;
+		}
+
+		if (viceRunning) {
+			state = Vice_None;
+			viceRunning = false;
+			monitorOn = false;
 		}
 
 		int bytesReceived = recv(s, recvBuf, RECEIVE_SIZE,0);
@@ -246,6 +280,10 @@ void ViceConnect::connectionThread()
 			// first connection => start reading memory
 			send(s, sMemory, (int)strlen(sMemory), NULL);
 			state = Vice_Memory;
+			monitorOn = true;
+			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+				pFrame->VicePrint(sViceStopped, (int)strlen(sViceStopped));
+			}
 		} else {
 			int read = 0;
 			while (read<bytesReceived) {
@@ -278,5 +316,8 @@ void ViceConnect::connectionThread()
 				}
 			}
 		}
+	}
+	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+		pFrame->VicePrint(sViceLost, (int)strlen(sViceLost));
 	}
 }
