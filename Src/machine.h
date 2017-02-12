@@ -48,6 +48,7 @@ void Initialize6502();
 void Shutdown6502();
 void ResetUndoBuffer();
 Regs& GetRegs();
+void SetRegs(const Regs &r);
 uint32_t GetCycles();
 uint8_t *Get6502Mem(uint16_t addr);
 uint8_t Get6502Byte(uint16_t addr);

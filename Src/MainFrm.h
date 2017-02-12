@@ -11,6 +11,7 @@
 #include "GraphicView.h"
 #include "BreakpointList.h"
 #include "WatchView.h"
+#include "ViceMon.h"
 
 // CMainToolBar
 
@@ -75,6 +76,8 @@ public:
 	void TryLoadBinary(const wchar_t *name);
 	void BreakpointChanged(uint32_t id=~0UL) { m_breakpoints.Rebuild(id); }
 	void MachineUpdated();
+	void VicePrint( const char* buf, int len );
+	void ViceInput(bool enable);
 	CFont &Font() { return m_font; }
 
 	int				  m_actionID;	// action ID increments when stepping or running
@@ -94,6 +97,7 @@ protected:  // control bar embedded members
 	CGraphicView      m_graphicView;
 	CBreakpointList   m_breakpoints;
 	CWatchView        m_watch;
+	CViceMonPane      m_vice;
 
 	int               m_currFontSize;
 	CFont             m_font;
@@ -128,6 +132,7 @@ public:
 	afx_msg void OnButtonReload();
 	afx_msg void OnButtonReset();
 	afx_msg void OnButtonLoad();
+	afx_msg void OnButtonVice();
 	afx_msg void OnFontsize12();
 	afx_msg void OnFontsize14();
 	afx_msg void OnFontsize16();
@@ -136,6 +141,7 @@ public:
 	afx_msg void OnFontsize22();
 	afx_msg void OnFontsize24();
 	afx_msg void OnEditCopy();
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };
 
 

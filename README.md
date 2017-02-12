@@ -6,6 +6,16 @@ Step6502 is a stand-alone 6502 windowed debugger similar to visual studio. The d
 
 Since the 6502 CPU context is just 8 bytes it is simple to store a complete machine delta for each instruction, which allows for an effective per instruction undo buffer. The undo buffer is used to step and run backwards in time, which fits nearly 2 million instructions or about two full seconds of 1 MHz running.
 
+#VICE Remote monitor
+
+Remote monitor support is added for VICE! Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502. While VICE is running hit the commodore logo in Step6502 to connect and when you hit a breakpoint or alt+m in VICE 6502 will take a snapshot of the machine state.
+
+Right now there is no support for actually debugging the VICE machine state, the debugger will work with a cloned machine but I might add that if it seems useful to anyone.
+
+###Command line
+
+    x64 -remotemonitor
+
 ##Background
 
 This debugger is simply a fun project, Tinkering with 6502 assembler I've got too comfortable with modern GUI debuggers such as Microsoft Visual Studio and SN Systems debuggers.
@@ -208,6 +218,9 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 
 ##Fixes
 
+* F5/F8/F9/F11/Shift-F5/Shift-F11 is not handled globally in the code so you can step while the window focus is outside of the code view.
+* Added VICE remote monitor support
+* Added C64 Multicolor Text Mode to graphic view
 * Added C64 Multicolor Bitmap mode to graphic view, using color ram at $d800, background color from $d021 and the screen data is the second pointer edit control in the graphic view.
 * Added Breakpoint View, Added copy to clipboard, Accept "Cancel" to be selected in dialogs.
 * Added conditional breakpoints with full expressions

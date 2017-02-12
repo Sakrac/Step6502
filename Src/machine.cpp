@@ -715,6 +715,11 @@ Regs& GetRegs() {
 	return currRegs;
 }
 
+void SetRegs(const Regs &r)
+{
+	currRegs = r;
+}
+
 uint32_t GetCycles() {
 	return cycles;
 }

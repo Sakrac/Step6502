@@ -65,6 +65,9 @@
     <ClInclude Include="WatchView.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="ViceMon.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -113,6 +116,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WatchView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ViceConnect.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ViceMon.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

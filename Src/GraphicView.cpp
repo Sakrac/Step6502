@@ -126,7 +126,7 @@ void CGraphicView::SetLayout(GraphicLayout layout) {
 	else if (layout == GL_TEXTMODE && memcmp(Get6502Mem(0x400), _aStartupScreenFruit, 908) == 0)
 		memcpy(Get6502Mem(0x400), _aStartupScreen, 908);
 	m_layout = layout;
-	m_editFontAddr.ShowWindow((layout == GL_TEXTMODE || layout == GL_C64MCBM) ? SW_SHOW : SW_HIDE);
+	m_editFontAddr.ShowWindow((layout == GL_TEXTMODE || layout == GL_C64MCBM || layout == GL_TEXTMC) ? SW_SHOW : SW_HIDE);
 }
 
 // CGraphicView message handlers
@@ -178,6 +178,7 @@ int CGraphicView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_columns.AddString(L"8X8,");
 	m_columns.AddString(L"c64 Sprites");
 	m_columns.AddString(L"c64 Text");
+	m_columns.AddString(L"c64 Text MC");
 	m_columns.AddString(L"c64 MCBM");
 	m_columns.AddString(L"Apl2 Hires");
 	m_columns.AddString(L"Apl2 HR Col");
@@ -341,6 +342,39 @@ HBITMAP CGraphicView::Create8bppBitmap(HDC hdc)
 						}
 					}
 				}
+			}
+			break;
+		}
+		case GL_TEXTMC: {
+			uint16_t a = m_address;
+			uint16_t f = 0xd800;	// hardwired color buffer
+			uint8_t k[ 4 ] = { uint8_t( Get6502Byte( 0xd021 ) & 0xf ), uint8_t( Get6502Byte( 0xd022 )& 0xf ), uint8_t( Get6502Byte( 0xd023 ) & 0xf ), 0 };
+			uint8_t *o = d;
+			for (int y = 0, ye=m_linesHigh>>3; y<ye; y++) {
+				for (int x = 0; x<m_bytesWide; x++) {
+					k[ 3 ] = Get6502Byte( f++ ) & 0xf;
+					int mc = k[3]&0x8;
+					k[3] &= 7;
+					uint8_t chr = Get6502Byte(a++);
+					uint16_t cs = m_fontAddress + 8*chr;
+					for (int h = 0; h<8; h++) {
+						uint8_t b = Get6502Byte(cs++);
+						if (mc) {
+							for (int bit = 6; bit>=0; bit -= 2) {
+								uint8_t c = k[(b>>bit)&0x3]+16;
+								*o++ = c;
+								*o++ = c;
+							}
+						} else {
+							for (int bit = 7; bit>=0; bit--) {
+								*o++ = k[((b>>bit)&1) ? 3 : 0]+16;
+							}
+						}
+						o += w-8;
+					}
+					o -= ( w - 1 )*8;
+				}
+				o += ( w - m_bytesWide ) * 8;
 			}
 			break;
 		}

@@ -100,12 +100,14 @@ BOOL CStep6502App::InitInstance()
 	return TRUE;
 }
 
+void ViceConnectShutdown();
 int CStep6502App::ExitInstance()
 {
 	//TODO: handle additional resources you may have added
 	pMain = nullptr;
 	Shutdown6502();
 	ShutdownSymbols();
+	ViceConnectShutdown();
 	return CWinAppEx::ExitInstance();
 }
 

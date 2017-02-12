@@ -21,6 +21,7 @@
 #define IDS_GRAPHIC_VIEW                131
 #define IDS_BREAKPOINTS                 132
 #define IDS_WATCH                       133
+#define IDS_VICE_MONITOR                134
 #define ID_VIEW_OUTPUTWND               149
 #define IDS_OUTPUT_WND                  157
 #define IDI_OUTPUT_WND                  165
@@ -65,6 +66,8 @@
 #define ID_WATCH_VIEW                   232
 #define ID_WATCH_LIST                   233
 #define ID_WATCH_EDIT                   234
+#define ID_VICE_MONITOR                 235
+#define ID_VICE_EDIT					236
 #define IDS_BUILD_TAB                   300
 #define IDS_DEBUG_TAB                   301
 #define IDS_FIND_TAB                    302
@@ -110,13 +113,15 @@
 #define ID_FONTSIZE_20                  32801
 #define ID_FONTSIZE_22                  32802
 #define ID_FONTSIZE_24                  32803
+#define ID_BUTTON_VICE                  32805
+#define ID_BUTTON32806                  32806
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        328
-#define _APS_NEXT_COMMAND_VALUE         32804
+#define _APS_NEXT_COMMAND_VALUE         32807
 #define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           311
 #endif

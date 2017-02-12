@@ -112,6 +112,7 @@ BEGIN
     BUTTON      ID_BUTTON_RESET
     BUTTON      ID_BUTTON_RELOAD
     BUTTON      ID_BUTTON_LOAD
+    BUTTON      ID_BUTTON_VICE
 END
 
 IDR_MAINFRAME_256 TOOLBAR 16, 15
@@ -130,6 +131,7 @@ BEGIN
     BUTTON      ID_BUTTON_RESET
     BUTTON      ID_BUTTON_RELOAD
     BUTTON      ID_BUTTON_LOAD
+    BUTTON      ID_BUTTON_VICE
 END
 
 
@@ -312,7 +314,7 @@ BEGIN
             VALUE "FileDescription", "Step6502"
             VALUE "FileVersion", "1.0.0.1"
             VALUE "InternalName", "Step6502.exe"
-            VALUE "LegalCopyright", "(c) Carl-Henrik Skårstedt.  All rights reserved."
+            VALUE "LegalCopyright", "(c) Carl-Henrik Skårstedt. All rights reserved."
             VALUE "OriginalFilename", "Step6502.exe"
             VALUE "ProductName", "Step6502"
             VALUE "ProductVersion", "1.0.0.1"
@@ -381,6 +383,7 @@ BEGIN
     IDS_GRAPHIC_VIEW        "Graphics"
     IDS_BREAKPOINTS         "Breakpoints"
     IDS_WATCH               "Watch"
+    IDS_VICE_MONITOR        "Vice Monitor"
 END
 
 STRINGTABLE

@@ -65,6 +65,7 @@ BEGIN_MESSAGE_MAP(CMainFrame, CFrameWndEx)
 	ON_COMMAND(ID_BUTTON_RELOAD, &CMainFrame::OnButtonReload)
 	ON_COMMAND(ID_BUTTON_RESET, &CMainFrame::OnButtonReset)
 	ON_COMMAND(ID_BUTTON_LOAD, &CMainFrame::OnButtonLoad)
+	ON_COMMAND(ID_BUTTON_VICE, &CMainFrame::OnButtonVice)
 	ON_COMMAND(ID_FONTSIZE_12, &CMainFrame::OnFontsize12)
 	ON_COMMAND(ID_FONTSIZE_14, &CMainFrame::OnFontsize14)
 	ON_COMMAND(ID_FONTSIZE_16, &CMainFrame::OnFontsize16)
@@ -196,6 +197,9 @@ int CMainFrame::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_watch.EnableDocking(CBRS_ALIGN_ANY);
 	DockPane(&m_watch);
 
+	m_vice.EnableDocking(CBRS_ALIGN_ANY);
+	DockPane(&m_vice);
+
 	// set the visual manager and style based on persisted value
 	OnApplicationLook(theApp.m_nAppLook);
 
@@ -307,7 +311,7 @@ BOOL CMainFrame::CreateDockingWindows()
 	CString strMem2Wnd;
 	bNameValid = strMem2Wnd.LoadString(IDS_MEMORY2_NAME);
 	ASSERT(bNameValid);
-	if (!m_memory2.Create(strMem2Wnd, this, CRect(0, 0, 640, 480), TRUE, ID_VIEW_MEMORY2, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_BOTTOM | CBRS_FLOAT_MULTI)) {
+	if (!m_memory2.Create(strMem2Wnd, this, CRect(0, 0, 640, 480), TRUE, ID_VIEW_MEMORY2, WS_CHILD /*| WS_VISIBLE*/ | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_BOTTOM | CBRS_FLOAT_MULTI)) {
 		TRACE0("Failed to create Memory window\n");
 		return FALSE; // failed to create
 	}
@@ -343,6 +347,14 @@ BOOL CMainFrame::CreateDockingWindows()
 	ASSERT(bNameValid);
 	if (!m_watch.Create(strWatchWnd, this, CRect(0, 0, 640, 480), TRUE, ID_WATCH_VIEW, WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
 		TRACE0("Failed to create Watch window\n");
+		return FALSE; // failed to create
+	}
+
+	CString strViceMon;
+	bNameValid = strViceMon.LoadString(IDS_VICE_MONITOR);
+	ASSERT(bNameValid);
+	if (!m_vice.Create(strViceMon, this, CRect(0, 0, 640, 480), TRUE, ID_VICE_MONITOR, WS_CHILD /*| WS_VISIBLE*/ | WS_CLIPSIBLINGS | WS_CLIPCHILDREN | CBRS_TOP | CBRS_FLOAT_MULTI)) {
+		TRACE0("Failed to create Vice Monitor window\n");
 		return FALSE; // failed to create
 	}
 
@@ -574,6 +586,16 @@ void CMainFrame::MachineUpdated()
 	InvalidateAll();
 }
 
+void CMainFrame::VicePrint(const char * buf, int len)
+{
+	m_vice.AddText(buf, len);
+}
+
+void CMainFrame::ViceInput(bool enable)
+{
+	m_vice.EnableInput(enable);
+}
+
 void CMainToolBar::EnableToolbarButton(int id, bool enable)
 {
 	int index = CommandToIndex(id);
@@ -775,6 +797,11 @@ void CMainFrame::OnButtonLoad()
 			   m_loadAddressDialog.m_bForceLoadAddress, m_loadAddressDialog.m_bResetUndo);
 }
 
+bool ViceAction();
+void CMainFrame::OnButtonVice()
+{
+	ViceAction();
+}
 
 // D:\test\step6502\MainFrm.cpp : implementation file
 //
@@ -850,4 +877,60 @@ void CMainFrame::OnEditCopy()
 			m_code.OnEditCopy();
 			break;
 	}
+}
+
+
+BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: Add your specialized code here and/or call the base class
+
+	if (pMsg->message==WM_KEYDOWN) {
+		int nChar = (int)pMsg->wParam;
+		if (nChar==VK_F11&&!IsCPURunning()) {
+			if (GetKeyState(VK_SHIFT)&0x8000) {
+				CPUStepBack();
+				if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+					pFrame->m_actionID++;
+					pFrame->InvalidateRegs();
+				}
+			} else {
+				CPUStep();
+				if (CMainFrame *pFrame = theApp.GetMainFrame())
+					pFrame->m_actionID++;
+			}
+			if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
+				m_code.currAddr = GetRegs().PC;
+			Invalidate();
+			return true;
+		} else if (nChar==VK_F8&&!IsCPURunning()) {
+			CPUStepOver();
+			if (CMainFrame *pFrame = theApp.GetMainFrame())
+				pFrame->m_actionID++;
+			if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
+				m_code.currAddr = GetRegs().PC;
+			Invalidate();
+			return true;
+		} else if (nChar==VK_F9 && m_code.m_cursor!=0xffff&&m_code.m_aLinePC[m_code.m_cursor]>0) {
+			if (m_code.m_cursor<CCodeView::MAX_CODE_LINES) {
+				uint32_t id = TogglePCBreakpoint(m_code.m_aLinePC[m_code.m_cursor]);
+				theApp.GetMainFrame()->BreakpointChanged(id);
+			}
+			Invalidate();
+			return true;
+		} else if (nChar==VK_F10) {
+			CPUStepOver();
+			if (GetRegs().PC<m_code.currAddr || (m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
+				m_code.currAddr = GetRegs().PC;
+			Invalidate();
+			return true;
+		} else if (nChar==VK_F5) {
+			if (GetKeyState(VK_SHIFT)&0x8000)
+				CPUReverse();
+			else
+				CPUGo();
+			Invalidate();
+			return true;
+		}
+	}
+	return CFrameWndEx::PreTranslateMessage(pMsg);
 }

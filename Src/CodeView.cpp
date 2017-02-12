@@ -507,6 +507,7 @@ void CCodeView::OnSysKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		if (GetRegs().PC<currAddr || (currAddr<bottomAddr && GetRegs().PC>=bottomAddr))
 			currAddr = GetRegs().PC;
 		GetParent()->Invalidate();
+		return;
 	}
 
 	CDockablePane::OnSysKeyDown(nChar, nRepCnt, nFlags);

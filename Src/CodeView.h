@@ -64,7 +64,6 @@ public:
 	void SetBP();
 	void OnAssembled(uint16_t nextAddr);
 
-protected:
 	CCodeAddress m_address;
 	CAsmEdit m_assemble;
 	uint16_t m_lineHeight;
