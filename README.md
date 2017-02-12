@@ -6,13 +6,13 @@ Step6502 is a stand-alone 6502 windowed debugger similar to visual studio. The d
 
 Since the 6502 CPU context is just 8 bytes it is simple to store a complete machine delta for each instruction, which allows for an effective per instruction undo buffer. The undo buffer is used to step and run backwards in time, which fits nearly 2 million instructions or about two full seconds of 1 MHz running.
 
-#VICE Remote monitor
+##VICE Remote monitor
 
 Remote monitor support is added for VICE! Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502. While VICE is running hit the commodore logo in Step6502 to connect and when you hit a breakpoint or alt+m in VICE 6502 will take a snapshot of the machine state.
 
 Right now there is no support for actually debugging the VICE machine state, the debugger will work with a cloned machine but I might add that if it seems useful to anyone.
 
-###Command line
+Vice Command Line
 
     x64 -remotemonitor
 
@@ -58,6 +58,7 @@ The buttons on the toolbar can control most of the functions of the Code View.
 * Reset: Signal a reset, sets the PC to the reset vector address
 * Reload: Load the previously loaded binary with the previous options, even if the debugger has been reopened since
 * Load: Load a binary into RAM
+* C=: Connect to VICE running in remote monitor mode, when VICE enables the monitor the debugger will copy the machine state from VICE. 
 
 ###Code View
 
