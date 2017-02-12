@@ -6,15 +6,9 @@ Step6502 is a stand-alone 6502 windowed debugger similar to visual studio. The d
 
 Since the 6502 CPU context is just 8 bytes it is simple to store a complete machine delta for each instruction, which allows for an effective per instruction undo buffer. The undo buffer is used to step and run backwards in time, which fits nearly 2 million instructions or about two full seconds of 1 MHz running.
 
-##VICE Remote monitor
+##VICE support
 
-Remote monitor support is added for VICE! Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502. While VICE is running hit the commodore logo in Step6502 to connect and when you hit a breakpoint or alt+m in VICE 6502 will take a snapshot of the machine state.
-
-Right now there is no support for actually debugging the VICE machine state, the debugger will work with a cloned machine but I might add that if it seems useful to anyone.
-
-Vice Command Line
-
-    x64 -remotemonitor
+Remote monitor support is added for [VICE](http://vice-emu.sourceforge.net/)! Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502. Use the C= button in the toolbar to connect to Vice.
 
 ##Background
 
@@ -81,6 +75,18 @@ The CodeView pane accepts drag & drop of binary files.
 Click and drag to select disassembly to copy to clipboard.
 
 The toolbar can be used to control code as well.
+
+##VICE Remote monitor
+
+While VICE is running hit the commodore logo in Step6502 to connect and when you hit a breakpoint or alt+m in VICE 6502 will take a snapshot of the machine state.
+
+To interact the monitor, enable the Vice Log from the View / Toolbars and Docking Windows drop down menu, it is not shown by default.
+
+Right now there is no support for actually debugging the VICE machine state, the debugger will work with a cloned machine but I might add that if it seems useful to anyone.
+
+Vice Command Line
+
+    x64 -remotemonitor
 
 ###Memory View
 
@@ -176,9 +182,11 @@ If the image is larger than the pane it can be moved by dragging with the left m
 Copying after clicking in the graphic view will copy the bitmap to the clipboard.
 
 ![Apple II Hires view](media/AppleII_Hires.png)
+
 *Apple II Hires example*
 
 ![Apple II Hires Color view](media/AppleII_Hires_Color.png)
+
 *Apple II Hires Color example*
 
 ###Loading a binary file
@@ -209,7 +217,11 @@ and then type a filename with the extension .d64 into the File Name field. First
 
 Now open the monitor by pressing Alt+m and type: s "bootram.bin" 8 0 ffff
 
-Exit vice, open a command line prompt and go to the folder with the .d64 and run vice\c1541.exe <name>.d64 and type "extract" followed by "quit".
+Exit vice, open a command line prompt and go to the folder with the .d64 and run vice\c1541.exe \<name\>.d64 and type "extract" followed by "quit".
+
+###Troubleshooting
+
+If the window panes in the tool bug out you can reset them by going to the Registry Editor (tap windows key, type regedit then enter), eixt the tool and go into HKEY_USERS/SOFTWARE/x65 and delete Step6502.
 
 ##Building the debugger project
 
@@ -219,6 +231,7 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 
 ##Fixes
 
+* Additional keyboard input fixes.
 * F5/F8/F9/F11/Shift-F5/Shift-F11 is not handled globally in the code so you can step while the window focus is outside of the code view.
 * Added VICE remote monitor support
 * Added C64 Multicolor Text Mode to graphic view

@@ -389,15 +389,6 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		} else
 			currAddr = GetRegs().PC;
 		Invalidate();
-	} else if (nChar == VK_ESCAPE) {
-		m_selecting = false;
-		if (IsCPURunning()) {
-			CPUStop();
-		}
-		if (m_cursor != 0xffff) {
-			m_cursor = 0xffff;
-			Invalidate();
-		}
 	} else if (nChar == VK_UP) {
 		if (m_cursor == 0 || m_cursor == 0xffff) {
 			int len = 1;
@@ -416,40 +407,6 @@ void CCodeView::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		else
 			m_cursor++;
 		GetParent()->Invalidate();
-	} else if (nChar == VK_F11 && !IsCPURunning()) {
-		if (GetKeyState(VK_SHIFT) & 0x8000) {
-			CPUStepBack();
-			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-				pFrame->m_actionID++;
-				pFrame->InvalidateRegs();
-			}
-		} else {
-			CPUStep();
-			if (CMainFrame *pFrame = theApp.GetMainFrame())
-				pFrame->m_actionID++;
-		}
-		if (GetRegs().PC<currAddr || (currAddr<bottomAddr && GetRegs().PC>=bottomAddr))
-			currAddr = GetRegs().PC;
-		GetParent()->Invalidate();
-	} else if (nChar == VK_F8 && !IsCPURunning()) {
-		CPUStepOver();
-		if (CMainFrame *pFrame = theApp.GetMainFrame())
-			pFrame->m_actionID++;
-		if (GetRegs().PC<currAddr || (currAddr<bottomAddr && GetRegs().PC>=bottomAddr))
-			currAddr = GetRegs().PC;
-		GetParent()->Invalidate();
-	} else if (nChar == VK_F9 && m_cursor != 0xffff && m_aLinePC[m_cursor]>0) {
-		if (m_cursor<MAX_CODE_LINES) {
-			uint32_t id = TogglePCBreakpoint(m_aLinePC[m_cursor]);
-			theApp.GetMainFrame()->BreakpointChanged(id);
-		}
-		Invalidate();
-	} else if (nChar == VK_F5) {
-		if (GetKeyState(VK_SHIFT) & 0x8000)
-			CPUReverse();
-		else
-			CPUGo();
-		Invalidate();
 	}
 
 	if (nChar == VK_UP || nChar == VK_DOWN || nChar == VK_LEFT || nChar == VK_RIGHT) {

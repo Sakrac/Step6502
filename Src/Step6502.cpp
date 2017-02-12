@@ -176,10 +176,41 @@ void CStep6502App::SaveCustomState()
 
 // CStep6502App message handlers
 
-
-
 void CStep6502App::OnButtonStop()
 {
 	// TODO: Add your command handler code here
 }
 
+BOOL CStep6502App::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: Add your specialized code here and/or call the base class
+	if (pMain) {
+		int nChar = (int)pMsg->wParam;
+		if (pMsg->message==WM_SYSKEYDOWN) {
+			if (nChar==VK_F10) {
+				pMain->StepOver();
+				return true;
+			}
+		} else if (pMsg->message==WM_KEYDOWN) {
+			switch (nChar) {
+				case VK_F5:
+					pMain->Go(!!(GetKeyState(VK_SHIFT)&0x8000));
+					return true;
+				case VK_F8:
+					pMain->StepOver();
+					return true;
+				case VK_F9:
+					pMain->ToggleBreakpoint();
+					return true;
+				case VK_F11:
+					pMain->Step(!!(GetKeyState(VK_SHIFT)&0x8000));
+					return true;
+				case VK_ESCAPE:
+					pMain->Stop();
+					return true;
+			}
+		}
+	}
+
+	return CWinAppEx::PreTranslateMessage(pMsg);
+}

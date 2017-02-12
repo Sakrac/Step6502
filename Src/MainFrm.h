@@ -78,6 +78,11 @@ public:
 	void MachineUpdated();
 	void VicePrint( const char* buf, int len );
 	void ViceInput(bool enable);
+	void StepOver();
+	void Step(bool back);
+	void ToggleBreakpoint();
+	void Go(bool back);
+	void Stop();
 	CFont &Font() { return m_font; }
 
 	int				  m_actionID;	// action ID increments when stepping or running
@@ -141,7 +146,6 @@ public:
 	afx_msg void OnFontsize22();
 	afx_msg void OnFontsize24();
 	afx_msg void OnEditCopy();
-	virtual BOOL PreTranslateMessage(MSG* pMsg);
 };
 
 

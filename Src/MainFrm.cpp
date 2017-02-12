@@ -880,57 +880,66 @@ void CMainFrame::OnEditCopy()
 }
 
 
-BOOL CMainFrame::PreTranslateMessage(MSG* pMsg)
+void CMainFrame::StepOver()
 {
-	// TODO: Add your specialized code here and/or call the base class
+	if (!IsCPURunning()) {
+		CPUStepOver();
+		if (CMainFrame *pFrame = theApp.GetMainFrame())
+			pFrame->m_actionID++;
+		if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
+			m_code.currAddr = GetRegs().PC;
+		Invalidate();
+	}
+}
 
-	if (pMsg->message==WM_KEYDOWN) {
-		int nChar = (int)pMsg->wParam;
-		if (nChar==VK_F11&&!IsCPURunning()) {
-			if (GetKeyState(VK_SHIFT)&0x8000) {
-				CPUStepBack();
-				if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-					pFrame->m_actionID++;
-					pFrame->InvalidateRegs();
-				}
-			} else {
-				CPUStep();
-				if (CMainFrame *pFrame = theApp.GetMainFrame())
-					pFrame->m_actionID++;
+void CMainFrame::Step(bool back)
+{
+	if (!IsCPURunning()) {
+		if (back) {
+			CPUStepBack();
+			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+				pFrame->m_actionID++;
+				pFrame->InvalidateRegs();
 			}
-			if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
-				m_code.currAddr = GetRegs().PC;
-			Invalidate();
-			return true;
-		} else if (nChar==VK_F8&&!IsCPURunning()) {
-			CPUStepOver();
+		} else {
+			CPUStep();
 			if (CMainFrame *pFrame = theApp.GetMainFrame())
 				pFrame->m_actionID++;
-			if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
-				m_code.currAddr = GetRegs().PC;
-			Invalidate();
-			return true;
-		} else if (nChar==VK_F9 && m_code.m_cursor!=0xffff&&m_code.m_aLinePC[m_code.m_cursor]>0) {
-			if (m_code.m_cursor<CCodeView::MAX_CODE_LINES) {
-				uint32_t id = TogglePCBreakpoint(m_code.m_aLinePC[m_code.m_cursor]);
-				theApp.GetMainFrame()->BreakpointChanged(id);
-			}
-			Invalidate();
-			return true;
-		} else if (nChar==VK_F10) {
-			CPUStepOver();
-			if (GetRegs().PC<m_code.currAddr || (m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
-				m_code.currAddr = GetRegs().PC;
-			Invalidate();
-			return true;
-		} else if (nChar==VK_F5) {
-			if (GetKeyState(VK_SHIFT)&0x8000)
-				CPUReverse();
-			else
-				CPUGo();
-			Invalidate();
-			return true;
 		}
+		if (GetRegs().PC<m_code.currAddr||(m_code.currAddr<m_code.bottomAddr && GetRegs().PC>=m_code.bottomAddr))
+			m_code.currAddr = GetRegs().PC;
+		Invalidate();
 	}
-	return CFrameWndEx::PreTranslateMessage(pMsg);
+}
+
+void CMainFrame::ToggleBreakpoint()
+{
+	if (m_code.m_cursor!=0xffff&&m_code.m_aLinePC[m_code.m_cursor]>0) {
+		if (m_code.m_cursor<CCodeView::MAX_CODE_LINES) {
+			uint32_t id = TogglePCBreakpoint(m_code.m_aLinePC[m_code.m_cursor]);
+			theApp.GetMainFrame()->BreakpointChanged(id);
+		}
+		Invalidate();
+	}
+}
+
+void CMainFrame::Go(bool back)
+{
+	if (back)
+		CPUReverse();
+	else
+		CPUGo();
+	Invalidate();
+}
+
+void CMainFrame::Stop()
+{
+	m_code.m_selecting = false;
+	if (IsCPURunning()) {
+		CPUStop();
+	}
+	if (m_code.m_cursor != 0xffff) {
+		m_code.m_cursor = 0xffff;
+		Invalidate();
+	}
 }
