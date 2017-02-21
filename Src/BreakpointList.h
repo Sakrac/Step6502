@@ -70,12 +70,14 @@ public:
 	virtual ~CBreakpointList();
 
 	void OnEditField(wchar_t *text);
+	void AddDisplayExpression( uint32_t bpID, wchar_t * text );
 	void OnSelectField(int column, int row, CRect &rect);
 	void OnClearEditField();
 	void Rebuild(uint32_t id_remove=~0UL);
 	void CheckboxState(int idx, bool set);
 	void RemoveBPByIndex(int idx);
 	void GoToBPByIndex(int idx);
+	const wchar_t* GetExpression( uint32_t id );
 protected:
 	CBPListCtr m_bp_listctrl;
 	CImageList m_icons;

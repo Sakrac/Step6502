@@ -33,20 +33,20 @@ struct sBPCond {
 // desired.
 
 // breakpoints
-uint16_t aBP_PC[MAX_PC_BREAKPOINTS];	// active breakpoints
-uint32_t aBP_ID[MAX_PC_BREAKPOINTS];	// breakpoint IDs, for visualization
-struct sBPCond aBP_CN[MAX_PC_BREAKPOINTS];
-uint8_t aBP_EX[MAX_BP_CONDITIONS];
-uint16_t nBP = 0;		// total number of PC breakpoints
-uint16_t nBP_PC = 0;	// number of PC breakpoints
-uint16_t nBP_DS = 0;	// number of disabled breakpoints
-uint16_t nBP_EX_Len = 0;
-uint32_t nBP_NextID = 0;
-uint16_t bStopCPU = 0;
-uint16_t bCPUIRQ = 0;
-uint16_t bCPUNMI = 0;
+static uint16_t aBP_PC[MAX_PC_BREAKPOINTS];	// active breakpoints
+static uint32_t aBP_ID[MAX_PC_BREAKPOINTS];	// breakpoint IDs, for visualization
+static sBPCond aBP_CN[MAX_PC_BREAKPOINTS];		// condition bytecode
+static uint8_t aBP_EX[MAX_BP_CONDITIONS];
+static uint16_t nBP = 0;		// total number of PC breakpoints
+static uint16_t nBP_PC = 0;	// number of PC breakpoints
+static uint16_t nBP_DS = 0;	// number of disabled breakpoints
+static uint16_t nBP_EX_Len = 0;
+static uint32_t nBP_NextID = 0;
+static uint16_t bStopCPU = 0;
+static uint16_t bCPUIRQ = 0;
+static uint16_t bCPUNMI = 0;
 
-HANDLE mutexBP = 0;
+static HANDLE mutexBP = 0;
 
 
 
@@ -1261,25 +1261,27 @@ uint32_t TogglePCBreakpoint(uint16_t addr)
 	return ~0UL;
 }
 
-void SetPCBreakpoint(uint16_t addr)
+uint32_t SetPCBreakpoint(uint16_t addr)
 {
+	uint32_t ret = ~0UL;
 	WaitForSingleObject(mutexBP, INFINITE);
 
 	uint16_t nBP_T = nBP + nBP_DS;
 	for (int b = 0; b<nBP_T; b++) {
 		if (aBP_PC[b]==addr) {
 			ReleaseMutex(mutexBP);
-			return;
+			return aBP_ID[b];
 		}
 	}
 	if (nBP < MAX_PC_BREAKPOINTS) {
 		if (nBP_DS)
 			MoveBPSlots(nBP, nBP+nBP_DS);
-		aBP_ID[nBP] = nBP_NextID++;
+		ret = aBP_ID[nBP] = nBP_NextID++;
 		aBP_CN[nBP].size = 0;
 		aBP_PC[nBP++] = addr;
 	}
 	ReleaseMutex(mutexBP);
+	return ret;
 }
 
 bool GetBreakpointAddrByID(uint32_t id, uint16_t &addr) {
@@ -1296,9 +1298,8 @@ bool GetBreakpointAddrByID(uint32_t id, uint16_t &addr) {
 void RemoveBreakpointByID(uint32_t id)
 {
 	WaitForSingleObject(mutexBP, INFINITE);
-	uint16_t nBP_T = nBP + nBP_DS;
-	for (int b = 0; b<nBP_T; b++) {
-		if (aBP_ID[b] == id) {
+	for (int b = 0; b<(nBP + nBP_DS); b++) {
+		if (aBP_ID[b] == id || id==~0UL) {
 			EraseBPCondition(b);
 			if (b<nBP) {
 				nBP--;

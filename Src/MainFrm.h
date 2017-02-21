@@ -77,12 +77,16 @@ public:
 	void BreakpointChanged(uint32_t id=~0UL) { m_breakpoints.Rebuild(id); }
 	void MachineUpdated();
 	void VicePrint( const char* buf, int len );
+	void ViceMonClear();
 	void ViceInput(bool enable);
 	void StepOver();
 	void Step(bool back);
 	void ToggleBreakpoint();
 	void Go(bool back);
 	void Stop();
+	void BPDisplayExpression(uint32_t bpID, wchar_t *text) { m_breakpoints.AddDisplayExpression(bpID, text); }
+	const wchar_t* GetBPExpression( uint32_t id ) { return m_breakpoints.GetExpression(id); }
+
 	CFont &Font() { return m_font; }
 
 	int				  m_actionID;	// action ID increments when stepping or running

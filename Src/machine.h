@@ -74,7 +74,7 @@ uint16_t GetNumPCBreakpoints();
 uint16_t* GetPCBreakpoints();
 uint16_t GetPCBreakpointsID(uint16_t **pBP, uint32_t **pID, uint16_t &nDS);
 uint32_t TogglePCBreakpoint(uint16_t addr);
-void SetPCBreakpoint(uint16_t addr);
+uint32_t SetPCBreakpoint(uint16_t addr); // returns ID of breakpoint
 void RemoveBreakpointByID(uint32_t id);
 bool GetBreakpointAddrByID(uint32_t id, uint16_t &addr);
 bool EnableBPByID(uint32_t id, bool enable);

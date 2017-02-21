@@ -203,6 +203,12 @@ void CBreakpointList::OnEditField(wchar_t *text)
 	m_field_col = m_field_row = -1;
 }
 
+void CBreakpointList::AddDisplayExpression(uint32_t bpID, wchar_t *text)
+{
+	m_BP_Expressions[bpID] = text;
+}
+
+
 void CBreakpointList::OnClearEditField()
 {
 	m_field_col = m_field_row = -1;
@@ -237,6 +243,13 @@ void CBreakpointList::GoToBPByIndex(int idx)
 			theApp.GetMainFrame()->FocusAddr(addr);
 		}
 	}
+}
+
+const wchar_t * CBreakpointList::GetExpression( uint32_t id )
+{
+	std::map<uint32_t, CString>::iterator f = m_BP_Expressions.find(id);
+	if( f!=m_BP_Expressions.end()) { return f->second; }
+	return nullptr;
 }
 
 void CBreakpointList::CheckboxState(int idx, bool set) {
@@ -280,8 +293,9 @@ void CBreakpointList::Rebuild(uint32_t id_remove)
 			wsprintf(addrStr, L"%04x", bp_sorted[b].addr);
 			m_bp_listctrl.InsertItem(b, addrStr, 0);
 			f = m_BP_Expressions.find(bp_sorted[b].id);
-			if (f != m_BP_Expressions.end())
+			if (f != m_BP_Expressions.end()) {
 				m_bp_listctrl.SetItemText(b, 1, f->second);
+			}
 			m_BP_ID.push_back(struct sIDInfo(bp_sorted[b].id, bp_sorted[b].enabled));
 			ListView_SetCheckState(m_bp_listctrl.GetSafeHwnd(), b, bp_sorted[b].enabled);
 		}

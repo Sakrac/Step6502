@@ -588,7 +588,12 @@ void CMainFrame::MachineUpdated()
 
 void CMainFrame::VicePrint(const char * buf, int len)
 {
-	m_vice.AddText(buf, len);
+	if (buf && len) { m_vice.AddText(buf, len); }
+}
+
+void CMainFrame::ViceMonClear()
+{
+	m_vice.Clear();
 }
 
 void CMainFrame::ViceInput(bool enable)

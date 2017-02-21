@@ -23,6 +23,7 @@ enum ExpOp {
 	EO_D,				// decimal
 	EO_V,				// overflow
 	EO_N,				// negative
+	EO_FL,				// flags as one byte
 	EO_BYTE,			// read byte from memory
 	EO_2BYTE,			// read 2 bytes from memory
 
@@ -147,7 +148,10 @@ ExpOp ParseOp(ExpStr &str, uint32_t &v)
 			}
 			if (IsAlphabetic(c)) {
 				wchar_t C = ToUp(c);
-				if (C==L'S' && *str==L'8' && !IsAlphaNumeric(str[1])) {
+				if (C==L'F' && ToUp(*str)==L'L' && !IsAlphaNumeric(str[1])) {
+					++str;
+					return EO_FL;
+				} else if (C==L'S' && *str==L'8' && !IsAlphaNumeric(str[1])) {
 					++str;
 					return EO_SGN8;
 				} else if (C==L'S' && *str==L'1' && str[1]==L'6' && !IsAlphaNumeric(str[1])) {
@@ -165,6 +169,7 @@ ExpOp ParseOp(ExpStr &str, uint32_t &v)
 						case L'D': return EO_D;
 						case L'V': return EO_V;
 						case L'N': return EO_N;
+						case L'P': return EO_FL;
 					}
 				} else if ((c==L'P' || c==L'p') && (*str==L'C' || *str==L'c') && !IsAlphaNumeric(str[1])) {
 					++str;
@@ -274,6 +279,7 @@ int EvalExpression(const uint8_t *RPN)
 			case EO_D: values[i++] = (r.P&F_D) ? 1 : 0; break; // decimal
 			case EO_V: values[i++] = (r.P&F_V) ? 1 : 0; break; // overflow
 			case EO_N: values[i++] = (r.P&F_N) ? 1 : 0; break; // negative
+			case EO_FL: values[i++] = r.P; break;
 			case EO_BYTE:			// read byte from memory
 				if (!(err = i<1))
 					values[i-1] = Get6502Byte((uint16_t)values[i-1]);

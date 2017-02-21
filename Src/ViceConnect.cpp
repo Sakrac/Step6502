@@ -6,6 +6,7 @@
 #include "machine.h"
 #include "MainFrm.h"
 #include "Step6502.h"
+#include "Expressions.h"
 
 class ViceConnect
 {
@@ -40,18 +41,22 @@ static const char* sViceStopped = "<VICE stopped>\n";
 static const char* sViceConnected = "<VICE connected>\n";
 static const char* sViceDisconnected = "<VICE disconnected>\n";
 static const char* sViceLost = "<VICE connection lost>\n";
+static const int sViceLostLen = (const int)strlen(sViceLost);
 static const char* sViceRun = "x\n";
+static const char* sViceDel = "del\n";
+static char sViceExit[64];
+static int sViceExitLen;
 
 void ViceSend(const char *string, int length)
 {
 	if (sVice.activeConnection) {
-		send(sVice.s, string, length, NULL);
 		if (length&&(string[0]=='x'||string[0]=='X'||string[0]=='g'||string[0]=='G')) {
+
+			memcpy(sViceExit, string, length);
+			sViceExitLen = length;
 			sVice.viceRunning = true;
-			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-				pFrame->VicePrint(sViceRunning, (int)strlen(sViceRunning));
-			}
 		}
+		send(sVice.s, string, length, NULL);
 	}
 }
 
@@ -182,8 +187,12 @@ enum ViceUpdate
 	Vice_None,
 	Vice_Start,
 	Vice_Memory,
+	Vice_Breakpoints,
 	Vice_Registers,
-	Vice_Wait
+	Vice_Wait,
+
+	Vice_SendBreakpoints,
+	Vice_Return,
 };
 
 
@@ -214,6 +223,44 @@ bool ProcessViceLine(const char* line, int len)
 	return false;
 }
 
+static uint32_t lastBPID = ~0UL;
+
+bool ProcessBKLine(char* line, int len)
+{
+	// check "No breakpoints are set"
+	if( _strnicmp(line, "No breakpoints", 14)==0 ) { return true; }
+
+	// "BREAK: 3  C:$1300  (Stop on exec)"
+
+	if( _strnicmp(line, "BREAK:", 6)==0) {
+		while (len>=4&&*line!='$') { ++line; --len; }
+		char *end;
+		lastBPID = SetPCBreakpoint((uint16_t)strtol(line+1, &end, 16));
+		return false;
+	}
+
+	// "Condition: A != $00"
+	if( _strnicmp(line, "\tCondition:", 11)==0 && lastBPID != ~0UL ) {
+		while( len && ((uint8_t)line[len-1])<=' ') { --len; }
+		line[len] = 0;
+		wchar_t display[128];
+		size_t displen;
+		mbstowcs_s(&displen, display, line + 12, 128);
+		uint8_t ops[64];
+		uint32_t len = BuildExpression(display, ops, sizeof(ops));
+		SetBPCondition(lastBPID, ops, len);
+		if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+			pFrame->BPDisplayExpression( lastBPID, display );
+		}
+		return false;
+	}
+
+	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+		pFrame->VicePrint(line, len);
+	}
+	return false;
+}
+
 bool ProcessViceRegisters(char* regs, int left)
 {
 	//   ADDR A  X  Y  SP 00 01 NV-BDIZC LIN CYC  STOPWATCH
@@ -236,6 +283,7 @@ bool ProcessViceRegisters(char* regs, int left)
 
 const char* sMemory = "m $0000 $ffff\n";
 const char* sRegisters = "r\n";
+const char* sBreakpoints = "bk\n";
 
 // waits for vice break after connection is established
 void ViceConnect::connectionThread()
@@ -247,12 +295,16 @@ void ViceConnect::connectionThread()
 	char line[512];
 	int offs = 0;
 
+	sViceExit[0] = 0;
+
 	ViceUpdate state = Vice_None;
 	viceRunning = false;
 
 	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->VicePrint(sViceConnected, (int)strlen(sViceConnected));
 	}
+
+	int currBreak = 0;
 
 	while(activeConnection) {
 		if (closeRequest) {
@@ -262,9 +314,10 @@ void ViceConnect::connectionThread()
 		}
 
 		if (viceRunning) {
-			state = Vice_None;
+			state = Vice_SendBreakpoints;
+			currBreak = 0;
 			viceRunning = false;
-			monitorOn = false;
+			send(s, sViceDel, 4, NULL);
 		}
 
 		int bytesReceived = recv(s, recvBuf, RECEIVE_SIZE,0);
@@ -275,26 +328,44 @@ void ViceConnect::connectionThread()
 				activeConnection = false;
 				break;
 			}
-		}
-		else if (state==Vice_None) {
-			// first connection => start reading memory
-			send(s, sMemory, (int)strlen(sMemory), NULL);
-			state = Vice_Memory;
-			monitorOn = true;
-			if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-				pFrame->VicePrint(sViceStopped, (int)strlen(sViceStopped));
-			}
 		} else {
 			int read = 0;
 			while (read<bytesReceived) {
 				char c = line[offs++] = recvBuf[read++];
+
+				// vice prompt = (C:$????)
+				bool prompt = offs>=9&&line[8]==')'&&strncmp(line, "(C:$", 4)==0;
+
 				// vice sends lines so process one line at a time
-				if (c==0x0a||offs==sizeof(line)||(state==Vice_Wait && read==bytesReceived)) {
-					if (state==Vice_Memory) {
-						if (ProcessViceLine(line, offs)) {
+				if (c==0x0a||offs==sizeof(line)||prompt||((state==Vice_Wait) && read==bytesReceived)) {
+					if (state==Vice_Return) {
+						if (prompt) { state = Vice_None; }
+					} else  if (state==Vice_None) {
+						if (prompt) {
+							// first connection => start reading memory
+							send(s, sMemory, (int)strlen(sMemory), NULL);
+							state = Vice_Memory;
+							monitorOn = true;
+							if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+								pFrame->VicePrint(sViceStopped, (int)strlen(sViceStopped));
+							}
+						}
+					} else if (state==Vice_Memory) {
+						if (prompt || ProcessViceLine(line, offs)) {
 							while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+							RemoveBreakpointByID(-1);
+							lastBPID = ~0UL;
+							state = Vice_Breakpoints;
+							send(s, sBreakpoints, (int)strlen(sBreakpoints), NULL);
+							offs = 0;
+							break;
+						}
+					} else if (state==Vice_Breakpoints) {
+						if (prompt || ProcessBKLine(line, offs)) {
+							if (CMainFrame *pFrame = theApp.GetMainFrame()) { pFrame->BreakpointChanged(); }
 							send(s, sRegisters, (int)strlen(sRegisters), NULL);
 							state = Vice_Registers;
+							offs = 0;
 							break;
 						}
 					} else if (state==Vice_Registers) {
@@ -306,9 +377,46 @@ void ViceConnect::connectionThread()
 							}
 							state = Vice_Wait;
 						}
+					} else if( state == Vice_SendBreakpoints ) {
+						if (prompt) {
+							offs = 0;
+							uint16_t numDis;
+							uint16_t *pBP = nullptr;
+							uint32_t *pID = nullptr;
+							uint16_t num = GetPCBreakpointsID(&pBP, &pID, numDis);
+							if ((int)num<=currBreak) {
+								send(s, sViceExit, sViceExitLen, 0);
+								sViceExit[0] = 0;
+								monitorOn = false;
+								if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+									pFrame->ViceMonClear();
+									pFrame->VicePrint(sViceRunning, (int)strlen(sViceRunning));
+								}
+								while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+								state = Vice_None;
+								read = bytesReceived;
+							} else {
+								char buf[256];
+								int l = sprintf_s(buf, sizeof(buf), "bk $%04x", pBP[currBreak]);
+								if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+									if (const wchar_t *pExpr = pFrame->GetBPExpression(pID[currBreak])) {
+										char expr[128];
+										size_t lex;
+										wcstombs_s(&lex, expr, pExpr, sizeof(expr));
+										l += sprintf_s(buf+l, sizeof(buf)-l, " if %s", expr);
+									}
+								}
+								l += sprintf_s(buf+l, sizeof(buf)-l, "\n");
+								send(sVice.s, buf, l, NULL);
+								if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+									pFrame->VicePrint(buf, l);
+								}
+								++currBreak;
+							}
+						}
 					} else {
 						if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-							pFrame->VicePrint(recvBuf, bytesReceived);
+							pFrame->VicePrint(line, offs);
 							pFrame->ViceInput(true);
 						}
 					}
@@ -318,6 +426,6 @@ void ViceConnect::connectionThread()
 		}
 	}
 	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
-		pFrame->VicePrint(sViceLost, (int)strlen(sViceLost));
+		pFrame->VicePrint(sViceLost, sViceLostLen);
 	}
 }

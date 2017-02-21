@@ -120,6 +120,12 @@ void CViceMonPane::AddText(const char *buf, int len)
 	m_edit.m_prompt = range.cpMax;
 }
 
+void CViceMonPane::Clear()
+{
+	m_edit.SetSel(0, -1);
+	m_edit.ReplaceSel(L"");
+}
+
 void CViceMonPane::EnableInput(bool enable)
 {
 	m_edit.SetOptions(enable ? ECOOP_AND : ECOOP_OR, enable ? (~ECO_READONLY) : ECO_READONLY );
@@ -138,10 +144,15 @@ void CViceMon::OnKeyDown(UINT nChar, UINT nRepCnt, UINT nFlags)
 		SetSel(m_prompt, -1);
 		CString text = GetSelText();
 		SetSel(-1, -1);
-		char buf[512];
+		char buf[512], *r=buf, *w=buf;
+
 		size_t len = 0;
 		wcstombs_s(&len, buf, text, sizeof(buf)-1);
-		ViceSend(buf, (int)len);
+//		for( size_t i=0; i<len; ++i ) {
+//			if( *r!='\r' ) { *w++ = *r; }
+//			++r;
+//		}
+		ViceSend(buf, (int)len);//(int)(w-buf));
 	}
 
 	CRichEditCtrl::OnKeyDown(nChar, nRepCnt, nFlags);
