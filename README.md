@@ -8,7 +8,10 @@ Since the 6502 CPU context is just 8 bytes it is simple to store a complete mach
 
 ##VICE support
 
-Remote monitor support is added for [VICE](http://vice-emu.sourceforge.net/)! Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502. Use the C= button in the toolbar to connect to Vice.
+Remote monitor support is added for [VICE](http://vice-emu.sourceforge.net/)!
+* Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502.
+* Use the C= button in the toolbar to connect to Vice.
+* Added breakpoint and symbol synchronization (from Vice, when returning to vice breakpoints are updated from Step6502)
 
 ##Background
 
@@ -231,6 +234,7 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 
 ##Fixes
 
+* Added Vice Breakpoints and Symbols (add_label) synchronization when connecting with Vice.
 * Additional keyboard input fixes.
 * F5/F8/F9/F11/Shift-F5/Shift-F11 is not handled globally in the code so you can step while the window focus is outside of the code view.
 * Added VICE remote monitor support

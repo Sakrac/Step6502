@@ -7,6 +7,7 @@
 #include "MainFrm.h"
 #include "Step6502.h"
 #include "Expressions.h"
+#include "Sym.h"
 
 class ViceConnect
 {
@@ -187,6 +188,7 @@ enum ViceUpdate
 	Vice_None,
 	Vice_Start,
 	Vice_Memory,
+	Vice_Labels,
 	Vice_Breakpoints,
 	Vice_Registers,
 	Vice_Wait,
@@ -221,6 +223,23 @@ bool ProcessViceLine(const char* line, int len)
 		}
 	}
 	return false;
+}
+
+// (C:$e5d4) shl
+// $0421 .Label2
+// $1234 .Label1
+bool ProcessViceLabel(char* line, int len)
+{
+	if (*line=='$' && line[6]=='.') {
+		wchar_t name[256];
+		char *end;
+		uint16_t addr = (uint16_t)strtol(line+1, &end, 16);
+		size_t namelen;
+		line[len] = 0;
+		mbstowcs_s(&namelen, name, line+6, 256);
+		AddSymbol(addr, name, namelen);
+	}
+	return false;	
 }
 
 static uint32_t lastBPID = ~0UL;
@@ -283,6 +302,7 @@ bool ProcessViceRegisters(char* regs, int left)
 
 const char* sMemory = "m $0000 $ffff\n";
 const char* sRegisters = "r\n";
+const char* sLabels = "shl\n";
 const char* sBreakpoints = "bk\n";
 
 // waits for vice break after connection is established
@@ -340,6 +360,9 @@ void ViceConnect::connectionThread()
 				if (c==0x0a||offs==sizeof(line)||prompt||((state==Vice_Wait) && read==bytesReceived)) {
 					if (state==Vice_Return) {
 						if (prompt) { state = Vice_None; }
+						else if (CMainFrame *pFrame = theApp.GetMainFrame()) {
+							pFrame->VicePrint(line, offs);
+						}
 					} else  if (state==Vice_None) {
 						if (prompt) {
 							// first connection => start reading memory
@@ -352,6 +375,17 @@ void ViceConnect::connectionThread()
 						}
 					} else if (state==Vice_Memory) {
 						if (prompt || ProcessViceLine(line, offs)) {
+							while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+							RemoveBreakpointByID(-1);
+							lastBPID = ~0UL;
+							state = Vice_Labels;
+							ShutdownSymbols();
+							send(s, sLabels, (int)strlen(sLabels), NULL);
+							offs = 0;
+							break;
+						}
+					} else if (state==Vice_Labels) {
+						if (prompt || ProcessViceLabel(line, offs)) {
 							while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
 							RemoveBreakpointByID(-1);
 							lastBPID = ~0UL;
@@ -385,6 +419,7 @@ void ViceConnect::connectionThread()
 							uint32_t *pID = nullptr;
 							uint16_t num = GetPCBreakpointsID(&pBP, &pID, numDis);
 							if ((int)num<=currBreak) {
+								while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
 								send(s, sViceExit, sViceExitLen, 0);
 								sViceExit[0] = 0;
 								monitorOn = false;
@@ -392,7 +427,6 @@ void ViceConnect::connectionThread()
 									pFrame->ViceMonClear();
 									pFrame->VicePrint(sViceRunning, (int)strlen(sViceRunning));
 								}
-								while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
 								state = Vice_None;
 								read = bytesReceived;
 							} else {

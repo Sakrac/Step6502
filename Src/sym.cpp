@@ -2,46 +2,32 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "machine.h"
+#include <map>
+#include <string>
 
+// 2017-02-21: Replaced memory friendly label system with wasteful easier to manage symbol lookup.
 
-static uint16_t *pSymbols = nullptr;
-static uint16_t nSymbols = 0;
+static std::map<uint16_t, CString>* sSymbols = nullptr;
+static std::map<CString, uint16_t>* sReverse = nullptr;
 
-
-// sort the addresses for lookup
-struct tmplbl { uint16_t addr; wchar_t *name; };
-static int _sortlabels(const void *A, const void *B)
-{
-	uint16_t a = ((const struct tmplbl*)A)->addr;
-	uint16_t b = ((const struct tmplbl*)B)->addr;
-
-	return a<b ? -1 : (a==b ? 0 : 1);
-}
 
 void ShutdownSymbols()
 {
-	if (pSymbols != nullptr)
-		free(pSymbols);
-	pSymbols = nullptr;
-	nSymbols = 0;
+	if (sSymbols) {
+		delete sSymbols;
+		sSymbols = nullptr;
+	}
+	if (sReverse) {
+		delete sReverse;
+		sReverse = nullptr;
+	}
 }
 
 const wchar_t* GetSymbol(uint16_t address)
 {
-	uint16_t count = nSymbols;
-	uint16_t max = count;
-	uint16_t first = 0;
-	while (count != first) {
-		uint16_t index = (first+count)>>1;
-		uint16_t read = pSymbols[index];
-		if (address==read) {
-			while (index && pSymbols[index-1]==address)
-				index--;	// guarantee first identical index returned on match
-			return ((const wchar_t**)&pSymbols[nSymbols])[index];
-		} else if (address>read)
-			first = index+1;
-		else
-			count = index;
+	if (sSymbols) {
+		std::map<uint16_t, CString>::const_iterator f = sSymbols->find(address);
+		if (f!=sSymbols->end()) { return f->second; }
 	}
 	return nullptr;
 }
@@ -49,13 +35,26 @@ const wchar_t* GetSymbol(uint16_t address)
 // this is not fast but it is only called when a new string is entered, not every time evaluated
 bool GetAddress(const wchar_t *name, size_t chars, uint16_t &addr)
 {
-	for (uint16_t i = 0; i<nSymbols; i++) {
-		if (wcsncmp(((const wchar_t**)&pSymbols[nSymbols])[i], name, chars)==0) {
-			addr = pSymbols[i];
+	if( sReverse ) {
+		std::map<CString, uint16_t>::const_iterator i = sReverse->find(CString(name, (int)chars));
+		if( i!=sReverse->end()) {
+			addr = i->second;
 			return true;
 		}
 	}
 	return false;
+}
+
+void AddSymbol(uint16_t address, const wchar_t *name, size_t chars)
+{
+	if (sSymbols == nullptr) { sSymbols = new std::map<uint16_t, CString>(); }
+	if (sSymbols->find(address) == sSymbols->end() ) {
+		sSymbols->insert(std::pair<uint16_t, CString>(address, CString(name, (int)chars)));
+	}
+	if (sReverse == nullptr) { sReverse = new std::map<CString, uint16_t>(); }
+	if (sReverse->find(CString(name, (int)chars)) == sReverse->end() ) {
+		sReverse->insert(std::pair<CString, uint16_t>(CString(name, (int)chars), address));
+	}
 }
 
 
@@ -121,19 +120,11 @@ void ReadSymbols(const wchar_t *binname)
 
 					if (label_found) {
 						if (addr < 0x10000) {
-							if (addrNames == nullptr) {
-								numLabels++;
-								numChars += strlen(labelName) + 1;
-							} else {
-								addrNames[numLabels].addr = addr;
-								addrNames[numLabels].name = strcurr;
-								size_t oldlen = strlen(labelName);
-								size_t newlen = 0;
-								mbstowcs_s(&newlen, strcurr, strcurr_left, labelName, oldlen);
-								strcurr += newlen;
-								strcurr_left -= newlen;
-								numLabels++;
-							}
+							wchar_t name[512];
+							size_t oldlen = strlen(labelName);
+							size_t newlen = 0;
+							mbstowcs_s(&newlen, name, 512, labelName, oldlen);
+							AddSymbol(addr, name, newlen);
 						}
 					}
 
@@ -145,25 +136,6 @@ void ReadSymbols(const wchar_t *binname)
 						buf++;
 						size_tmp--;
 					}
-				}
-
-				if (!pass && numLabels) {
-					addrNames = (struct tmplbl*)malloc(2*numLabels * sizeof(struct tmplbl));
-					addresses = (uint16_t*)malloc(numLabels * sizeof(uint16_t) + numLabels * sizeof(wchar_t*) + numChars * sizeof(wchar_t));
-					strtable = (wchar_t**)&addresses[numLabels];
-					strcurr = (wchar_t*)&strtable[numLabels];
-					strend = (wchar_t*)((uint8_t*)addresses + numLabels * sizeof(uint16_t) + numLabels * sizeof(wchar_t*) + numChars * sizeof(wchar_t));
-					strcurr_left = numChars;
-				} else {
-					qsort(addrNames, numLabels, sizeof(struct tmplbl), _sortlabels);
-					for (uint32_t l = 0; l<numLabels; l++) {
-						addresses[l] = addrNames[l].addr;
-						strtable[l] = addrNames[l].name;
-					}
-					if (pSymbols != nullptr)
-						free(pSymbols);
-					pSymbols = addresses;
-					nSymbols = numLabels;
 				}
 			}
 
