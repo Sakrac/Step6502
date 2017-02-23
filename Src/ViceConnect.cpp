@@ -33,6 +33,7 @@ public:
 	bool closeRequest;
 	bool viceRunning;
 	bool monitorOn;
+	bool stopRequest;
 };
 
 static ViceConnect sVice;
@@ -75,6 +76,16 @@ bool ViceAction()
 		return false;
 	}
 	return sVice.connect();
+}
+
+bool ViceRunning()
+{
+	return sVice.activeConnection && !sVice.monitorOn;
+}
+
+void ViceBreak()
+{
+	sVice.stopRequest = true;
 }
 
 void ViceConnectShutdown()
@@ -195,6 +206,7 @@ enum ViceUpdate
 
 	Vice_SendBreakpoints,
 	Vice_Return,
+	Vice_Break,
 };
 
 
@@ -288,11 +300,11 @@ bool ProcessViceRegisters(char* regs, int left)
 		Regs r;
 		char* end = regs + left, *erp = end;
 		r.PC = (uint16_t)strtol(regs+2, &end, 16); end = erp;
-		r.A = (uint8_t)strtol(regs+6, &end, 16); end = erp;
-		r.X = (uint8_t)strtol(regs+9, &end, 16); end = erp;
-		r.Y = (uint8_t)strtol(regs+12, &end, 16); end = erp;
-		r.S = (uint8_t)strtol(regs+14, &end, 16); end = erp;
-		r.P = (uint8_t)strtol(regs+23, &end, 2);
+		r.A = (uint8_t)strtol(regs+7, &end, 16); end = erp;
+		r.X = (uint8_t)strtol(regs+10, &end, 16); end = erp;
+		r.Y = (uint8_t)strtol(regs+13, &end, 16); end = erp;
+		r.S = (uint8_t)strtol(regs+16, &end, 16); end = erp;
+		r.P = (uint8_t)strtol(regs+25, &end, 2);
 		SetRegs(r);
 		ResetUndoBuffer();
 		return true;
@@ -324,7 +336,11 @@ void ViceConnect::connectionThread()
 		pFrame->VicePrint(sViceConnected, (int)strlen(sViceConnected));
 	}
 
+	uint8_t *RAM = nullptr;
+
 	int currBreak = 0;
+
+	stopRequest = false;
 
 	while(activeConnection) {
 		if (closeRequest) {
@@ -343,6 +359,10 @@ void ViceConnect::connectionThread()
 		int bytesReceived = recv(s, recvBuf, RECEIVE_SIZE,0);
 		if (bytesReceived==SOCKET_ERROR) {
 			if (WSAGetLastError()==WSAETIMEDOUT) {
+				if (state==Vice_None && stopRequest) {
+					send(s, "\n", 1, NULL);
+					stopRequest = false;
+				}
 				Sleep(100);
 			} else {
 				activeConnection = false;
@@ -371,11 +391,15 @@ void ViceConnect::connectionThread()
 							monitorOn = true;
 							if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 								pFrame->VicePrint(sViceStopped, (int)strlen(sViceStopped));
+								pFrame->Invalidate();
 							}
 						}
 					} else if (state==Vice_Memory) {
 						if (prompt || ProcessViceLine(line, offs)) {
 							while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+							if( RAM ) { free(RAM); }
+							RAM = (uint8_t*)malloc(64*1024);
+							memcpy(RAM, Get6502Mem(), 64*1024);
 							RemoveBreakpointByID(-1);
 							lastBPID = ~0UL;
 							state = Vice_Labels;
@@ -420,6 +444,45 @@ void ViceConnect::connectionThread()
 							uint16_t num = GetPCBreakpointsID(&pBP, &pID, numDis);
 							if ((int)num<=currBreak) {
 								while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+								// update registers
+								{
+									char reg[64];
+									const Regs r = GetRegs();
+									int l = sprintf_s( reg, sizeof(reg), "r pc=$%04x,a=$%02x,x=$%02x,y=$%02x,sp=$%02x,fl=$%02x\n", 
+													   r.PC, r.A, r.X, r.Y, r.S, r.P );
+									send(s, reg, l, 0);
+								}
+								while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+								// update memory if changed
+								if (RAM) {
+									char memstr[6+4*256+4];
+									int sl = (int)sizeof(memstr);
+									uint16_t a = 0;
+									const uint8_t *m = Get6502Mem();
+									do {
+										if( RAM[a] != m[a] ) {
+											int bytes = 0;
+											int o = sprintf_s(memstr, sl, ">$%04x", a);
+											uint16_t n = a;
+											while( n && (n-a)<256 ) {
+												o += sprintf_s(memstr+o, sl-o, " $%02x", m[n]);
+												++n;
+												if( n && RAM[n]==m[n] ) {
+													uint16_t p = n;
+													while( p && (p-n)<4 && RAM[p]==m[p] ) { ++p; }
+													if( !p || (p-n)==4) { break; }
+												}
+											}
+											a = n;
+											o += sprintf_s(memstr+o, sl-o, "\n");
+											send(s, memstr, o, 0);
+											while (recv(s, recvBuf, RECEIVE_SIZE, 0)!=SOCKET_ERROR) { Sleep(1); }
+										} else { ++a; }
+									} while( a );
+									free(RAM);
+									RAM = nullptr;
+								}
+								// finally send the exit command
 								send(s, sViceExit, sViceExitLen, 0);
 								sViceExit[0] = 0;
 								monitorOn = false;
@@ -459,6 +522,7 @@ void ViceConnect::connectionThread()
 			}
 		}
 	}
+	if( RAM ) { free(RAM); }
 	if (CMainFrame *pFrame = theApp.GetMainFrame()) {
 		pFrame->VicePrint(sViceLost, sViceLostLen);
 	}

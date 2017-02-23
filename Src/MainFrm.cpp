@@ -547,16 +547,22 @@ void CMainFrame::OnSettingChange(UINT uFlags, LPCTSTR lpszSection)
 }
 
 
+bool ViceRunning();
+void ViceBreak();
 void CMainFrame::OnButtonStop()
 {
-	// TODO: Add your command handler code here
 	CPUStop();
 
-	m_code.FocusPC();
+	// TODO: Add your command handler code here
+	if (ViceRunning()) {
+		ViceBreak();
+	} else {
+		m_code.FocusPC();
 
-	m_registers.Invalidate();
-	m_memory.Invalidate();
-	m_code.Invalidate();
+		m_registers.Invalidate();
+		m_memory.Invalidate();
+		m_code.Invalidate();
+	}
 }
 
 void CMainFrame::OnButtonStepBack()
@@ -617,7 +623,7 @@ void CMainToolBar::OnUpdateCmdUI(CFrameWnd *pFrame, BOOL bDisableIfNoHndler)
 {
 	CMFCToolBar::OnUpdateCmdUI(pFrame, bDisableIfNoHndler);
 	bool running = IsCPURunning();
-	EnableToolbarButton(ID_BUTTON_STOP, running);
+	EnableToolbarButton(ID_BUTTON_STOP, running || ViceRunning());
 	EnableToolbarButton(ID_BUTTON_GO, !running);
 	EnableToolbarButton(ID_BUTTON_REVERSE, !running);
 	EnableToolbarButton(ID_BUTTON_STEP, !running);

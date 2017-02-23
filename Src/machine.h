@@ -50,7 +50,7 @@ void ResetUndoBuffer();
 Regs& GetRegs();
 void SetRegs(const Regs &r);
 uint32_t GetCycles();
-uint8_t *Get6502Mem(uint16_t addr);
+uint8_t *Get6502Mem(uint16_t addr = 0);
 uint8_t Get6502Byte(uint16_t addr);
 void Set6502Byte(uint16_t addr, uint8_t value);
 int Disassemble(uint16_t addr, char *dest, int left, int &chars, bool illegals = false);

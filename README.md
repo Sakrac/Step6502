@@ -11,7 +11,8 @@ Since the 6502 CPU context is just 8 bytes it is simple to store a complete mach
 Remote monitor support is added for [VICE](http://vice-emu.sourceforge.net/)!
 * Start x64.exe normally but add -remotemonitor as a command line option, and start Step6502.
 * Use the C= button in the toolbar to connect to Vice.
-* Added breakpoint and symbol synchronization (from Vice, when returning to vice breakpoints are updated from Step6502)
+* Syncronizing machine state on enter and exit monitor mode
+* Pause button now also stops Vice Connection!
 
 ##Background
 
@@ -44,7 +45,7 @@ The buttons on the toolbar can control most of the functions of the Code View.
 
 * Copy: Copy from the current pane (code, graphics, memory, registers)
 * Help: Brings up the About dialog
-* Pause: This button is enabled when the CPU is running
+* Pause: This button is enabled when the CPU is running, or enters monitor mode if Vice Connection is running
 * Run: Run the emulator
 * Run backwards: Undo instructions until paused, a breakpoint is hit or the undo buffer is empty.
 * Step: Step one instruction
@@ -55,7 +56,7 @@ The buttons on the toolbar can control most of the functions of the Code View.
 * Reset: Signal a reset, sets the PC to the reset vector address
 * Reload: Load the previously loaded binary with the previous options, even if the debugger has been reopened since
 * Load: Load a binary into RAM
-* C=: Connect to VICE running in remote monitor mode, when VICE enables the monitor the debugger will copy the machine state from VICE. 
+* C=: Connect to VICE running in remote monitor mode, when VICE enables the monitor the debugger will copy the machine state from VICE. If pressed while connected and Vice is running this button will disconnect vice.
 
 ###Code View
 
@@ -127,6 +128,7 @@ Full expressions are supported for conditional breakpoints. The following operat
 * **D**: decimal flag (0 or 1)
 * **V**: overflow flag (0 or 1)
 * **N**: negative flag (0 or 1)
+* **FL** or **P**: all flags as a byte
 * **=** or **==**: equals (compare value on left and right side of operator)
 * **\<**: less than
 * **\>**: greater than
@@ -234,6 +236,7 @@ https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx
 
 ##Fixes
 
+* Syncronizing registers and memory before returning to Vice after monitor mode (either by entering x or g in Vice Monitor or by hitting the C= button while Vice is in monitor mode)
 * Added Vice Breakpoints and Symbols (add_label) synchronization when connecting with Vice.
 * Additional keyboard input fixes.
 * F5/F8/F9/F11/Shift-F5/Shift-F11 is not handled globally in the code so you can step while the window focus is outside of the code view.
