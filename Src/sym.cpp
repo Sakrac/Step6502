@@ -8,7 +8,7 @@
 // 2017-02-21: Replaced memory friendly label system with wasteful easier to manage symbol lookup.
 
 static std::map<uint16_t, CString>* sSymbols = nullptr;
-static std::map<CString, uint16_t>* sReverse = nullptr;
+static std::map<uint64_t, uint16_t>* sReverse = nullptr;
 
 
 void ShutdownSymbols()
@@ -32,11 +32,25 @@ const wchar_t* GetSymbol(uint16_t address)
 	return nullptr;
 }
 
+static uint64_t fnv1a_64(const wchar_t *string, size_t length, uint64_t seed = 14695981039346656037ULL)
+{
+	uint64_t hash = seed;
+	if (string) {
+		size_t left = length;
+		while (left--)
+			hash = (*string++ ^ hash) * 1099511628211;
+	}
+	return hash;
+}
+
+
 // this is not fast but it is only called when a new string is entered, not every time evaluated
 bool GetAddress(const wchar_t *name, size_t chars, uint16_t &addr)
 {
 	if( sReverse ) {
-		std::map<CString, uint16_t>::const_iterator i = sReverse->find(CString(name, (int)chars));
+		uint64_t key = fnv1a_64(name, chars);
+
+		std::map<uint64_t, uint16_t>::const_iterator i = sReverse->find(key);
 		if( i!=sReverse->end()) {
 			addr = i->second;
 			return true;
@@ -51,9 +65,10 @@ void AddSymbol(uint16_t address, const wchar_t *name, size_t chars)
 	if (sSymbols->find(address) == sSymbols->end() ) {
 		sSymbols->insert(std::pair<uint16_t, CString>(address, CString(name, (int)chars)));
 	}
-	if (sReverse == nullptr) { sReverse = new std::map<CString, uint16_t>(); }
-	if (sReverse->find(CString(name, (int)chars)) == sReverse->end() ) {
-		sReverse->insert(std::pair<CString, uint16_t>(CString(name, (int)chars), address));
+	if (sReverse == nullptr) { sReverse = new std::map<uint64_t, uint16_t>(); }
+	uint64_t key = fnv1a_64(name, chars);
+	if (sReverse->find(key) == sReverse->end() ) {
+		sReverse->insert(std::pair<uint64_t, uint16_t>(key, address));
 	}
 }
 
@@ -124,7 +139,7 @@ void ReadSymbols(const wchar_t *binname)
 							size_t oldlen = strlen(labelName);
 							size_t newlen = 0;
 							mbstowcs_s(&newlen, name, 512, labelName, oldlen);
-							AddSymbol(addr, name, newlen);
+							AddSymbol(addr, name, newlen-1);
 						}
 					}
 

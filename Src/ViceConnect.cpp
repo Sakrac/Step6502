@@ -248,8 +248,9 @@ bool ProcessViceLabel(char* line, int len)
 		uint16_t addr = (uint16_t)strtol(line+1, &end, 16);
 		size_t namelen;
 		line[len] = 0;
+		for(int c=6;;++c) { { if (line[c]<=0x20) { line[c]=0; break; } } }
 		mbstowcs_s(&namelen, name, line+6, 256);
-		AddSymbol(addr, name, namelen);
+		AddSymbol(addr, name, namelen-1);
 	}
 	return false;	
 }
